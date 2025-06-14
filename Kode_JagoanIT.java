@@ -571,67 +571,119 @@ public class Kode_JagoanIT {
                 }
             });
 
-    // --- BARU: Konstanta untuk Logika Prediksi Keterisian ---
-    /** Keterisian awal di stasiun pertama (%) */
-    private static final double BASE_OCCUPANCY = 15.0;
-    /** Faktor penambahan keterisian per menit perjalanan */
+    // --- Konstanta untuk Logika Prediksi Keterisian (Linear Model Fallback) ---
+    private static final double BASE_OCCUPANCY = 15.0; 
     private static final double INCREASE_FACTOR_PER_MINUTE = 0.8;
-    /** Faktor maksimal pengurangan keterisian saat mendekati tujuan akhir (%) */
     private static final double END_OF_ROUTE_DRAIN_FACTOR = 30.0;
-    /** Batas minimal keterisian (%) */
+    
+    // --- Konstanta Umum Keterisian ---
     private static final int MIN_OCCUPANCY = 5;
-    /** Batas maksimal keterisian (%) */
     private static final int MAX_OCCUPANCY = 98;
 
 
-    // --- BARU: Fungsi untuk Menghitung Prediksi Keterisian ---
     /**
      * Menghitung prediksi persentase keterisian di setiap stasiun pada rute.
+     * Logika ini telah direfaktor untuk menggunakan model parabola yang lebih realistis,
+     * dengan asumsi puncak keterisian terjadi di Stasiun Manggarai.
+     *
      * @param train Data kereta termasuk rute dan jadwal.
      * @return Map berisi pasangan stasiun dan persentase keterisiannya.
      */
     private static Map<String, Integer> calculateOccupancy(Map<String, Object> train) {
         @SuppressWarnings("unchecked")
         List<String> route = (List<String>) train.get("route");
-        @SuppressWarnings("unchecked")
-        Map<String, String> departureTimes = (Map<String, String>) train.get("departure_times");
         Map<String, Integer> occupancyMap = new HashMap<>();
 
-        if (route == null || route.size() < 2) {
+        if (route == null || route.isEmpty()) {
             return occupancyMap;
         }
 
-        double currentOccupancy = BASE_OCCUPANCY;
-        occupancyMap.put(route.get(0), (int) currentOccupancy);
+        // --- REFACTORED LOGIC: Parabolic Occupancy Model ---
+        // Model ini mengasumsikan keterisian puncak berada di Stasiun Manggarai (83%)
+        // dan mengikuti kurva parabola (a < 0), sesuai dengan permintaan.
 
-        for (int i = 1; i < route.size(); i++) {
-            String prevStation = route.get(i - 1);
+        final String PEAK_STATION = "Manggarai";
+        final double PEAK_OCCUPANCY = 83.0; // Keterisian puncak di Manggarai 83%
+        final double INITIAL_OCCUPANCY = 15.0; // Keterisian awal di stasiun pertama
+
+        int peakIndex = route.indexOf(PEAK_STATION);
+
+        // --- Fallback ke model linear jika stasiun puncak tidak ada di rute ---
+        if (peakIndex == -1) {
+            // (Menggunakan logika linear original sebagai fallback)
+            @SuppressWarnings("unchecked")
+            Map<String, String> departureTimes = (Map<String, String>) train.get("departure_times");
+            if (route.size() < 2 || departureTimes == null) {
+                if (!route.isEmpty()) occupancyMap.put(route.get(0), (int) INITIAL_OCCUPANCY);
+                return occupancyMap;
+            }
+
+            double currentOccupancy = BASE_OCCUPANCY;
+            occupancyMap.put(route.get(0), (int) currentOccupancy);
+
+            for (int i = 1; i < route.size(); i++) {
+                String prevStation = route.get(i - 1);
+                String currentStation = route.get(i);
+                
+                if (!departureTimes.containsKey(prevStation) || !departureTimes.containsKey(currentStation)) {
+                    occupancyMap.put(currentStation, (int) currentOccupancy);
+                    continue;
+                }
+
+                LocalTime prevTime = LocalTime.parse(departureTimes.get(prevStation));
+                LocalTime currentTime = LocalTime.parse(departureTimes.get(currentStation));
+
+                long travelMinutes = Duration.between(prevTime, currentTime).toMinutes();
+                double occupancyIncrease = travelMinutes * INCREASE_FACTOR_PER_MINUTE;
+                double progressRatio = (double) i / (route.size() - 1);
+                double occupancyDecrease = progressRatio * (END_OF_ROUTE_DRAIN_FACTOR / route.size());
+
+                currentOccupancy += occupancyIncrease - occupancyDecrease;
+                currentOccupancy = Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, currentOccupancy));
+
+                occupancyMap.put(currentStation, (int) currentOccupancy);
+            }
+            return occupancyMap;
+        }
+
+        // --- Kalkulasi Model Parabola ---
+        // Persamaan parabola: y = a(x - h)^2 + k
+        // y = keterisian, x = indeks stasiun
+        // (h, k) = titik puncak (peakIndex, PEAK_OCCUPANCY)
+
+        double h = peakIndex;
+        double k = PEAK_OCCUPANCY;
+
+        // Hitung koefisien 'a' (kelengkungan parabola)
+        // Gunakan stasiun pertama (indeks 0) dengan keterisian awal untuk menemukan 'a'.
+        // a = (y - k) / (x - h)^2
+        double a;
+        if (h == 0) {
+            // Jika rute dimulai dari stasiun puncak, gunakan nilai default
+            a = -0.5; 
+        } else {
+            a = (INITIAL_OCCUPANCY - k) / (Math.pow(0 - h, 2));
+        }
+
+        // Hitung keterisian untuk setiap stasiun di rute
+        for (int i = 0; i < route.size(); i++) {
             String currentStation = route.get(i);
-
-            LocalTime prevTime = LocalTime.parse(departureTimes.get(prevStation));
-            LocalTime currentTime = LocalTime.parse(departureTimes.get(currentStation));
-
-            // 1. Hitung penambahan berdasarkan waktu tempuh
-            long travelMinutes = Duration.between(prevTime, currentTime).toMinutes();
-            double occupancyIncrease = travelMinutes * INCREASE_FACTOR_PER_MINUTE;
-
-            // 2. Hitung pengurangan karena mendekati tujuan akhir
-            double progressRatio = (double) i / (route.size() - 1);
-            double occupancyDecrease = progressRatio * (END_OF_ROUTE_DRAIN_FACTOR / route.size());
-
-            currentOccupancy += occupancyIncrease - occupancyDecrease;
+            double x = i;
             
-            // Batasi nilai keterisian antara MIN dan MAX
-            currentOccupancy = Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, currentOccupancy));
+            // y = a(x - h)^2 + k
+            double calculatedOccupancy = a * Math.pow(x - h, 2) + k;
 
-            occupancyMap.put(currentStation, (int) currentOccupancy);
+            // Pastikan nilai berada dalam rentang MIN dan MAX
+            int finalOccupancy = (int) Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, calculatedOccupancy));
+            
+            occupancyMap.put(currentStation, finalOccupancy);
         }
 
         return occupancyMap;
     }
 
 
-    // --- MODIFIKASI: Core Prediction Logic ---
+    // --- Core Prediction Logic ---
     public static List<Map<String, Object>> predictNextTrains(String startStation, String destStation,
             LocalDateTime currentTime) {
         List<Map<String, Object>> predictions = new ArrayList<>();
@@ -663,7 +715,7 @@ public class Kode_JagoanIT {
 
                         LocalDateTime arrivalDateTime = currentTime.toLocalDate().atTime(LocalTime.parse(destArrivalTimeStr));
                         
-                        // MODIFIKASI: Hitung keterisian dan tambahkan ke data prediksi
+                        // Hitung keterisian dan tambahkan ke data prediksi
                         Map<String, Integer> occupancyData = calculateOccupancy(train);
                         Integer occupancyAtStart = occupancyData.get(startStation);
 
@@ -678,7 +730,6 @@ public class Kode_JagoanIT {
                         prediction.put("estimated_arrival",
                                 arrivalDateTime.format(DateTimeFormatter.ofPattern("HH:mm")));
                         prediction.put("_departure_dt", departureDateTime);
-                        // BARU: Tambahkan data keterisian
                         prediction.put("occupancy_percentage", occupancyAtStart); 
 
                         predictions.add(prediction);
@@ -705,9 +756,8 @@ public class Kode_JagoanIT {
         return sortedStations;
     }
 
-    // --- MODIFIKASI: Main Application ---
+    // --- Main Application ---
     public static void main(String[] args) {
-        // Menggunakan waktu saat ini agar lebih dinamis, atau bisa tetap pakai waktu simulasi
         LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 4, 30);
         Scanner scanner = new Scanner(System.in);
 
@@ -744,12 +794,10 @@ public class Kode_JagoanIT {
                 System.out.println("\nSorry, no upcoming trains found for your selected route.");
             } else {
                 System.out.println("\n--- Upcoming Train Schedule ---");
-                // MODIFIKASI: Tambah kolom header untuk Keterisian
                 System.out.printf("%-25s | %-12s | %-15s | %-12s%n", "Train Name", "Departs At", "Est. Arrival", "Occupancy");
                 System.out.println("-".repeat(75));
 
                 for (Map<String, Object> train : predictions) {
-                    // MODIFIKASI: Tampilkan data keterisian
                     String occupancyInfo = train.get("occupancy_percentage") != null ? train.get("occupancy_percentage") + "%" : "N/A";
                     System.out.printf("%-25s | %-12s | %-15s | %-12s%n",
                             train.get("train_name"),
@@ -765,7 +813,7 @@ public class Kode_JagoanIT {
         } finally {
             scanner.close();
         }
-    }
+    } // [1] & [2]
 }
-
 // [1] Konten ini dihasilkan oleh Google Gemini (tanggal akses 14 Juni 2025).
+// [2] Perbaiki variabel okupansi: asumsi keterisian puncak berada di Manggarai 83%, lebih kecil saat di awal dan di akhir
