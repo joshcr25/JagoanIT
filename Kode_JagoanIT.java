@@ -524,48 +524,403 @@ public class Kode_JagoanIT {
             },
             new HashMap<String, Object>() {
                 {
-                    put("train_id", "1183");
+                    put("train_id", "1007");
                     put("train_name", "Commuter Line Bogor");
-                    put("route", Arrays.asList("Jatinegara", "Manggarai", "Tanah Abang", "Duri", "Kampung Bandan"));
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
                     put("departure_times", new HashMap<String, String>() {
                         {
-                            put("Jatinegara", "08:15");
-                            put("Manggarai", "08:30");
-                            put("Tanah Abang", "08:50");
-                            put("Duri", "09:00");
-                            put("Kampung Bandan", "09:15");
+                            put("Bogor", "05:48");
+                            put("Cilebut", "05:57");
+                            put("Bojonggede", "06:03");
+                            put("Citayam", "06:09");
+                            put("Depok", "06:15");
+                            put("Depok Baru", "06:20");
+                            put("Pondok Cina", "06:22");
+                            put("Univ. Indonesia", "06:26");
+                            put("Univ. Pancasila", "06:28");
+                            put("Lenteng Agung", "06:29");
+                            put("Tanjung Barat", "06:31");
+                            put("Pasar Minggu", "06:40");
+                            put("Pasar Minggu Baru", "06:42");
+                            put("Duren Kalibata", "06:43");
+                            put("Cawang", "06:44");
+                            put("Tebet", "06:45");
+                            put("Manggarai", "06:53");
+                            put("Cikini", "06:55");
+                            put("Gondangdia", "06:57");
+                            put("Juanda", "07:05");
+                            put("Sawah Besar", "07:06");
+                            put("Mangga Besar", "07:07");
+                            put("Jayakarta", "07:14");
+                            put("Jakarta Kota", "07:17");
                         }
                     });
                 }
-            },
-            // --- Trains going in the opposite direction ---
-            new HashMap<String, Object>() {
+            },new HashMap<String, Object>() {
                 {
-                    put("train_id", "KRL-B04-REV");
-                    put("train_name", "Jakarta Express");
-                    put("route", Arrays.asList("Bogor", "Depok", "Manggarai", "Jakarta Kota"));
+                    put("train_id", "1191");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
                     put("departure_times", new HashMap<String, String>() {
                         {
-                            put("Bogor", "08:00");
-                            put("Depok", "08:25");
-                            put("Manggarai", "08:50");
-                            put("Jakarta Kota", "09:15");
+                            put("Bogor", "05:53");
+                            put("Cilebut", "06:02");
+                            put("Bojonggede", "06:08");
+                            put("Citayam", "06:14");
+                            put("Depok", "06:20");
+                            put("Depok Baru", "06:24");
+                            put("Pondok Cina", "06:26");
+                            put("Univ. Indonesia", "06:31");
+                            put("Univ. Pancasila", "06:33");
+                            put("Lenteng Agung", "06:34");
+                            put("Tanjung Barat", "06:36");
+                            put("Pasar Minggu", "06:44");
+                            put("Pasar Minggu Baru", "06:46");
+                            put("Duren Kalibata", "06:47");
+                            put("Cawang", "06:48");
+                            put("Tebet", "06:49");
+                            put("Manggarai", "06:57");
+                            put("Cikini", "06:59");
+                            put("Gondangdia", "07:01");
+                            put("Juanda", "07:09");
+                            put("Sawah Besar", "07:10");
+                            put("Mangga Besar", "07:11");
+                            put("Jayakarta", "07:18");
+                            put("Jakarta Kota", "07:21");
                         }
                     });
                 }
-            },
-            new HashMap<String, Object>() {
+            },new HashMap<String, Object>() {
                 {
-                    put("train_id", "KRL-B05-REV");
-                    put("train_name", "Jakarta Commuter");
-                    put("route", Arrays.asList("Bogor", "Depok", "Pasar Minggu", "Manggarai", "Jakarta Kota"));
+                    put("train_id", "1009");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai"));
                     put("departure_times", new HashMap<String, String>() {
                         {
-                            put("Bogor", "08:30");
-                            put("Depok", "08:55");
-                            put("Pasar Minggu", "09:10");
-                            put("Manggarai", "09:25");
-                            put("Jakarta Kota", "09:50");
+                            put("Bogor", "06:02");
+                            put("Cilebut", "06:12");
+                            put("Bojonggede", "06:19");
+                            put("Citayam", "06:25");
+                            put("Depok", "06:31");
+                            put("Depok Baru", "06:25");
+                            put("Pondok Cina", "06:27");
+                            put("Univ. Indonesia", "06:41");
+                            put("Univ. Pancasila", "06:43");
+                            put("Lenteng Agung", "06:44");
+                            put("Tanjung Barat", "06:46");
+                            put("Pasar Minggu", "06:55");
+                            put("Pasar Minggu Baru", "06:57");
+                            put("Duren Kalibata", "06:58");
+                            put("Cawang", "06:59");
+                            put("Tebet", "07:00");
+                            put("Manggarai", "07:08");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1193");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:08");
+                            put("Cilebut", "06:17");
+                            put("Bojonggede", "06:23");
+                            put("Citayam", "06:29");
+                            put("Depok", "06:35");
+                            put("Depok Baru", "06:39");
+                            put("Pondok Cina", "06:41");
+                            put("Univ. Indonesia", "06:46");
+                            put("Univ. Pancasila", "06:48");
+                            put("Lenteng Agung", "06:49");
+                            put("Tanjung Barat", "06:51");
+                            put("Pasar Minggu", "06:59");
+                            put("Pasar Minggu Baru", "07:01");
+                            put("Duren Kalibata", "07:02");
+                            put("Cawang", "07:03");
+                            put("Tebet", "07:04");
+                            put("Manggarai", "07:12");
+                            put("Cikini", "07:14");
+                            put("Gondangdia", "07:16");
+                            put("Juanda", "07:24");
+                            put("Sawah Besar", "07:25");
+                            put("Mangga Besar", "07:26");
+                            put("Jayakarta", "07:31");
+                            put("Jakarta Kota", "07:34");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1197");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:18");
+                            put("Cilebut", "06:27");
+                            put("Bojonggede", "06:33");
+                            put("Citayam", "06:39");
+                            put("Depok", "06:45");
+                            put("Depok Baru", "06:49");
+                            put("Pondok Cina", "06:51");
+                            put("Univ. Indonesia", "06:55");
+                            put("Univ. Pancasila", "06:57");
+                            put("Lenteng Agung", "06:58");
+                            put("Tanjung Barat", "07:00");
+                            put("Pasar Minggu", "07:08");
+                            put("Pasar Minggu Baru", "07:10");
+                            put("Duren Kalibata", "07:11");
+                            put("Cawang", "07:12");
+                            put("Tebet", "07:13");
+                            put("Manggarai", "07:24");
+                            put("Cikini", "07:26");
+                            put("Gondangdia", "07:28");
+                            put("Juanda", "07:36");
+                            put("Sawah Besar", "07:37");
+                            put("Mangga Besar", "07:38");
+                            put("Jayakarta", "07:44");
+                            put("Jakarta Kota", "07:47");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1011");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:22");
+                            put("Cilebut", "06:31");
+                            put("Bojonggede", "06:37");
+                            put("Citayam", "06:43");
+                            put("Depok", "06:49");
+                            put("Depok Baru", "06:53");
+                            put("Pondok Cina", "06:55");
+                            put("Univ. Indonesia", "06:59");
+                            put("Univ. Pancasila", "07:01");
+                            put("Lenteng Agung", "07:02");
+                            put("Tanjung Barat", "07:04");
+                            put("Pasar Minggu", "07:12");
+                            put("Pasar Minggu Baru", "07:14");
+                            put("Duren Kalibata", "07:15");
+                            put("Cawang", "07:16");
+                            put("Tebet", "07:17");
+                            put("Manggarai", "07:24");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1203");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:38");
+                            put("Cilebut", "06:47");
+                            put("Bojonggede", "06:53");
+                            put("Citayam", "06:59");
+                            put("Depok", "07:05");
+                            put("Depok Baru", "07:09");
+                            put("Pondok Cina", "07:11");
+                            put("Univ. Indonesia", "07:15");
+                            put("Univ. Pancasila", "07:17");
+                            put("Lenteng Agung", "07:18");
+                            put("Tanjung Barat", "07:20");
+                            put("Pasar Minggu", "07:28");
+                            put("Pasar Minggu Baru", "07:30");
+                            put("Duren Kalibata", "07:31");
+                            put("Cawang", "07:32");
+                            put("Tebet", "07:33");
+                            put("Manggarai", "07:43");
+                            put("Cikini", "07:45");
+                            put("Gondangdia", "07:47");
+                            put("Juanda", "07:55");
+                            put("Sawah Besar", "07:56");
+                            put("Mangga Besar", "07:57");
+                            put("Jayakarta", "08:04");
+                            put("Jakarta Kota", "08:07");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1205");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:43");
+                            put("Cilebut", "06:52");
+                            put("Bojonggede", "06:58");
+                            put("Citayam", "07:04");
+                            put("Depok", "07:10");
+                            put("Depok Baru", "07:14");
+                            put("Pondok Cina", "07:16");
+                            put("Univ. Indonesia", "07:20");
+                            put("Univ. Pancasila", "07:22");
+                            put("Lenteng Agung", "07:23");
+                            put("Tanjung Barat", "07:25");
+                            put("Pasar Minggu", "07:34");
+                            put("Pasar Minggu Baru", "07:36");
+                            put("Duren Kalibata", "07:37");
+                            put("Cawang", "07:38");
+                            put("Tebet", "07:39");
+                            put("Manggarai", "07:47");
+                            put("Cikini", "07:49");
+                            put("Gondangdia", "07:51");
+                            put("Juanda", "07:59");
+                            put("Sawah Besar", "08:00");
+                            put("Mangga Besar", "08:01");
+                            put("Jayakarta", "08:09");
+                            put("Jakarta Kota", "08:12");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1207");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:48");
+                            put("Cilebut", "06:57");
+                            put("Bojonggede", "07:03");
+                            put("Citayam", "07:09");
+                            put("Depok", "07:15");
+                            put("Depok Baru", "07:19");
+                            put("Pondok Cina", "07:21");
+                            put("Univ. Indonesia", "07:25");
+                            put("Univ. Pancasila", "07:27");
+                            put("Lenteng Agung", "07:28");
+                            put("Tanjung Barat", "07:30");
+                            put("Pasar Minggu", "07:38");
+                            put("Pasar Minggu Baru", "07:40");
+                            put("Duren Kalibata", "07:41");
+                            put("Cawang", "07:42");
+                            put("Tebet", "07:43");
+                            put("Manggarai", "07:54");
+                            put("Cikini", "07:56");
+                            put("Gondangdia", "07:58");
+                            put("Juanda", "08:06");
+                            put("Sawah Besar", "08:07");
+                            put("Mangga Besar", "08:08");
+                            put("Jayakarta", "08:14");
+                            put("Jakarta Kota", "08:17");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1209");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "06:54");
+                            put("Cilebut", "07:03");
+                            put("Bojonggede", "07:09");
+                            put("Citayam", "07:15");
+                            put("Depok", "07:21");
+                            put("Depok Baru", "07:25");
+                            put("Pondok Cina", "07:27");
+                            put("Univ. Indonesia", "07:31");
+                            put("Univ. Pancasila", "07:33");
+                            put("Lenteng Agung", "07:34");
+                            put("Tanjung Barat", "07:36");
+                            put("Pasar Minggu", "07:45");
+                            put("Pasar Minggu Baru", "07:47");
+                            put("Duren Kalibata", "07:48");
+                            put("Cawang", "07:49");
+                            put("Tebet", "07:50");
+                            put("Manggarai", "07:58");
+                            put("Cikini", "08:00");
+                            put("Gondangdia", "08:02");
+                            put("Juanda", "08:10");
+                            put("Sawah Besar", "08:11");
+                            put("Mangga Besar", "08:12");
+                            put("Jayakarta", "08:18");
+                            put("Jakarta Kota", "08:21");
+                        }
+                    });
+                }
+            },new HashMap<String, Object>() {
+                {
+                    put("train_id", "1213");
+                    put("train_name", "Commuter Line Bogor");
+                    put("route", Arrays.asList("Bogor", "Cilebut", "Bojonggede", "Citayam", "Depok", "Depok Baru",
+                                    "Pondok Cina", "Univ. Indonesia", "Univ. Pancasila", "Lenteng Agung",
+                                    "Tanjung Barat", "Pasar Minggu", "Pasar Minggu Baru", "Duren Kalibata", "Cawang",
+                                    "Tebet", "Manggarai", "Cikini", "Gondangdia", "Juanda", "Sawah Besar",
+                                    "Mangga Besar", "Jayakarta", "Jakarta Kota"));
+                    put("departure_times", new HashMap<String, String>() {
+                        {
+                            put("Bogor", "07:08");
+                            put("Cilebut", "07:17");
+                            put("Bojonggede", "07:23");
+                            put("Citayam", "07:29");
+                            put("Depok", "07:35");
+                            put("Depok Baru", "07:39");
+                            put("Pondok Cina", "07:41");
+                            put("Univ. Indonesia", "07:45");
+                            put("Univ. Pancasila", "07:47");
+                            put("Lenteng Agung", "07:48");
+                            put("Tanjung Barat", "07:50");
+                            put("Pasar Minggu", "07:59");
+                            put("Pasar Minggu Baru", "08:01");
+                            put("Duren Kalibata", "08:02");
+                            put("Cawang", "08:03");
+                            put("Tebet", "08:04");
+                            put("Manggarai", "08:13");
+                            put("Cikini", "08:15");
+                            put("Gondangdia", "08:17");
+                            put("Juanda", "08:25");
+                            put("Sawah Besar", "08:26");
+                            put("Mangga Besar", "08:27");
+                            put("Jayakarta", "08:35");
+                            put("Jakarta Kota", "08:38");
                         }
                     });
                 }
@@ -816,4 +1171,5 @@ public class Kode_JagoanIT {
     } // [1] & [2]
 }
 // [1] Konten ini dihasilkan oleh Google Gemini (tanggal akses 14 Juni 2025).
-// [2] Perbaiki variabel okupansi: asumsi keterisian puncak berada di Manggarai 83%, lebih kecil saat di awal dan di akhir
+// [2] Perbaikan variabel okupansi: asumsi keterisian puncak berada di Manggarai 83% di jam 06:00 - 09:00 dan 16:00-19:00, lebih kecil saat di awal dan di akhir
+// [3] Perbaikan variabel okupansi: asumsi keterisian makin tinggi sesuai waktu tempuh antarstasiun
