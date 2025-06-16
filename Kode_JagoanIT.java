@@ -123,6 +123,7 @@ class OccupancyPredictor {
         // Default off-peak (malam, sore, subuh, dll)
         return 25;
     }
+
     private static final int MIN_OCCUPANCY = 5;
     private static final int MAX_OCCUPANCY = 98;
 
@@ -149,7 +150,8 @@ class OccupancyPredictor {
 
     // Menentukan arah perjalanan berdasarkan urutan stasiun
     private static Direction getDirection(List<String> route) {
-        if (route == null || route.size() < 2) return Direction.UNKNOWN;
+        if (route == null || route.size() < 2)
+            return Direction.UNKNOWN;
         String first = normalizeStation(route.get(0));
         String last = normalizeStation(route.get(route.size() - 1));
         if (first.contains("bogor") && last.contains("jakarta")) {
@@ -163,71 +165,72 @@ class OccupancyPredictor {
     // Mengambil profil okupansi sesuai waktu dan arah
     private static Map<String, Integer> getPeakProfile(LocalTime time, Direction direction) {
         if (direction == Direction.JAKARTA_BOUND &&
-            !time.isBefore(MORNING_PEAK_START) && time.isBefore(MORNING_PEAK_END)) {
+                !time.isBefore(MORNING_PEAK_START) && time.isBefore(MORNING_PEAK_END)) {
             return MORNING_PEAK_JAKARTA_BOUND;
         }
         if (direction == Direction.BOGOR_BOUND &&
-            !time.isBefore(EVENING_PEAK_START) && time.isBefore(EVENING_PEAK_END)) {
+                !time.isBefore(EVENING_PEAK_START) && time.isBefore(EVENING_PEAK_END)) {
             return EVENING_PEAK_BOGOR_BOUND;
         }
         return null;
     }
 
     public static Map<String, Integer> predict(Train train, LocalDateTime currentTime) {
-    List<String> route = train.getRoute();
-    Map<String, Integer> occupancyMap = new HashMap<>();
-    if (route == null || route.isEmpty()) {
-        return occupancyMap;
-    }
+        List<String> route = train.getRoute();
+        Map<String, Integer> occupancyMap = new HashMap<>();
+        if (route == null || route.isEmpty()) {
+            return occupancyMap;
+        }
 
-    LocalTime time = currentTime.toLocalTime();
-    Direction direction = getDirection(route);
-    Map<String, Integer> profile = getPeakProfile(time, direction);
+        LocalTime time = currentTime.toLocalTime();
+        Direction direction = getDirection(route);
+        Map<String, Integer> profile = getPeakProfile(time, direction);
 
-    if (profile != null) {
-        // --- LOGIKA JAM SIBUK ---
-        for (int i = 0; i < route.size(); i++) {
-            String station = route.get(i);
-            boolean found = false;
-            for (String key : profile.keySet()) {
-                if (stationEquals(key, station)) {
-                    found = true;
-                    break;
+        if (profile != null) {
+            // --- LOGIKA JAM SIBUK ---
+            for (int i = 0; i < route.size(); i++) {
+                String station = route.get(i);
+                boolean found = false;
+                for (String key : profile.keySet()) {
+                    if (stationEquals(key, station)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    occupancyMap.put(station, profile.get(station));
+                } else {
+                    occupancyMap.put(station, interpolateOccupancy(route, i, profile, time));
                 }
             }
-            if (found) {
-                occupancyMap.put(station, profile.get(station));
-            } else {
-                occupancyMap.put(station, interpolateOccupancy(route, i, profile, time));
-            }
-        }
-    } else {
-        // --- LOGIKA DI LUAR JAM SIBUK (OFF-PEAK) DENGAN INTERPOLASI ---
-        int offPeakStart = MIN_OCCUPANCY;
-        int offPeakEnd = MIN_OCCUPANCY;
-        int offPeakMid = getOffPeakOccupancy(time);
+        } else {
+            // --- LOGIKA DI LUAR JAM SIBUK (OFF-PEAK) DENGAN INTERPOLASI ---
+            int offPeakStart = MIN_OCCUPANCY;
+            int offPeakEnd = MIN_OCCUPANCY;
+            int offPeakMid = getOffPeakOccupancy(time);
 
-        int n = route.size();
-        for (int i = 0; i < n; i++) {
-            // Interpolasi linear: naik dari MIN ke MID, lalu turun ke MIN
-            double pos = (double) i / (n - 1);
-            int interpolated;
-            if (pos <= 0.5) {
-                interpolated = (int) (offPeakStart + (offPeakMid - offPeakStart) * (pos / 0.5));
-            } else {
-                interpolated = (int) (offPeakMid + (offPeakEnd - offPeakMid) * ((pos - 0.5) / 0.5));
+            int n = route.size();
+            for (int i = 0; i < n; i++) {
+                // Interpolasi linear: naik dari MIN ke MID, lalu turun ke MIN
+                double pos = (double) i / (n - 1);
+                int interpolated;
+                if (pos <= 0.5) {
+                    interpolated = (int) (offPeakStart + (offPeakMid - offPeakStart) * (pos / 0.5));
+                } else {
+                    interpolated = (int) (offPeakMid + (offPeakEnd - offPeakMid) * ((pos - 0.5) / 0.5));
+                }
+                occupancyMap.put(route.get(i), Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, interpolated)));
             }
-            occupancyMap.put(route.get(i), Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, interpolated)));
         }
+        return occupancyMap;
     }
-    return occupancyMap;
-}
 
     /**
      * Mengestimasi okupansi stasiun yang tidak ada di profil
      * dengan mencari stasiun terdekat sebelum dan sesudahnya yang ada di profil.
      */
-    private static int interpolateOccupancy(List<String> route, int currentIndex, Map<String, Integer> profile, LocalTime time) {
+    private static int interpolateOccupancy(List<String> route, int currentIndex, Map<String, Integer> profile,
+            LocalTime time) {
         String currentStation = route.get(currentIndex);
 
         // Cari stasiun terdekat sebelumnya yang ada di profil
@@ -323,7 +326,8 @@ class TrainSchedulePredictorApp {
                 continue;
             int startIdx = route.indexOf(currentStation);
 
-            // Filter: hanya kereta yang memulai dari currentStation jika onlyDirectFromStart
+            // Filter: hanya kereta yang memulai dari currentStation jika
+            // onlyDirectFromStart
 
             for (int i = startIdx + 1; i < route.size(); i++) {
                 String nextStation = route.get(i);
@@ -438,8 +442,13 @@ class TrainSchedulePredictorApp {
                         String occupancyInfo = leg.get("occupancy_percentage") != null
                                 ? leg.get("occupancy_percentage") + "%"
                                 : "N/A";
+                        String trainName = (String) leg.get("train_name");
+                        String legStart = (String) leg.get("start_station");
+                        String legDest = (String) leg.get("destination_station");
+                        // Jika legStart dan legDest sama dengan startStation dan destStation, tambahkan
+                        // info rute user
                         System.out.printf("%-40s | %-12s | %-15s | %-12s%n",
-                                leg.get("train_name"),
+                                trainName + " (" + startStation + " - " + destStation + ")",
                                 leg.get("departure_time"),
                                 leg.get("estimated_arrival"),
                                 occupancyInfo);
