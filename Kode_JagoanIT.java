@@ -1,7 +1,9 @@
+import java.awt.BorderLayout;
 import java.io.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import javax.swing.*;
 
 class Train {
     private final String id;
@@ -287,6 +289,17 @@ class TrainSchedulePredictorApp {
         this.schedule = schedule;
     }
 
+    public static void showMapImage(String imagePath) {
+        JFrame frame = new JFrame("Peta Rute KRL");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        ImageIcon icon = new ImageIcon(imagePath);
+        JLabel label = new JLabel(icon);
+        frame.getContentPane().add(label, BorderLayout.CENTER);
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
     public List<List<Map<String, Object>>> predictRoutesWithTransit(
             String startStation, String destStation, LocalDateTime currentTime, int maxTransit) {
         List<List<Map<String, Object>>> results = new ArrayList<>();
@@ -326,10 +339,8 @@ class TrainSchedulePredictorApp {
                 continue;
             int startIdx = route.indexOf(currentStation);
 
-            // Filter: hanya kereta yang memulai dari currentStation jika
-            // onlyDirectFromStart
-
-            for (int i = startIdx + 1; i < route.size(); i++) {
+            // Cari stasiun terjauh yang bisa dicapai dengan kereta ini
+            for (int i = route.size() - 1; i > startIdx; i--) {
                 String nextStation = route.get(i);
                 String depTimeStr = departureTimes.get(currentStation);
                 String arrTimeStr = departureTimes.get(nextStation);
@@ -346,7 +357,6 @@ class TrainSchedulePredictorApp {
                         : Duration.between((LocalDateTime) currentRoute.get(0).get("_departure_dt"), arrTime)
                                 .toMinutes();
 
-                // Prune jika sudah lebih lama dari bestDuration
                 if (newDuration > bestDuration)
                     continue;
 
@@ -376,6 +386,8 @@ class TrainSchedulePredictorApp {
                     dfsFindRoutes(nextStation, destStation, arrTime.plusMinutes(1), remainingTransit - 1, newRoute,
                             results, new HashSet<>(visited), newDuration, false);
                 }
+                // Hanya ambil satu leg terjauh untuk satu kereta
+                break;
             }
         }
         visited.remove(visitKey);
@@ -397,6 +409,8 @@ class TrainSchedulePredictorApp {
             Scanner scanner = new Scanner(System.in);
 
             System.out.println("--- Train Schedule Predictor ---");
+            showMapImage("Rute-KRL-1.png");
+
             System.out.println("Current Time (Simulated): "
                     + simulatedCurrentTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + "\n");
 
@@ -431,25 +445,37 @@ class TrainSchedulePredictorApp {
             } else {
                 System.out.println("\n--- Upcoming Train Route(s) ---");
                 int routeNum = 1;
-                for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) { // tampilkan max
-                                                                                                        // 3 rute
-                                                                                                        // efisien
+                for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) {
                     System.out.println("Route #" + routeNum++);
                     System.out.printf("%-54s | %-12s | %-15s | %-12s%n", "Train Name", "Departs At", "Est. Arrival",
                             "Occupancy");
                     System.out.println("-".repeat(75));
-                    for (Map<String, Object> leg : route) {
+
+                    // Gabungkan leg dengan kereta yang sama
+                    int i = 0;
+                    while (i < route.size()) {
+                        Map<String, Object> leg = route.get(i);
+                        String trainName = (String) leg.get("train_name");
+                        String startStationfromTransit = (String) leg.get("start_station");
+                        String departureTime = (String) leg.get("departure_time");
                         String occupancyInfo = leg.get("occupancy_percentage") != null
                                 ? leg.get("occupancy_percentage") + "%"
                                 : "N/A";
-                        String trainName = (String) leg.get("train_name");
-                        // Jika legStart dan legDest sama dengan startStation dan destStation, tambahkan
-                        // info rute user
+                        int j = i;
+                        // Cari leg terakhir dengan kereta yang sama
+                        while (j + 1 < route.size() && route.get(j + 1).get("train_name").equals(trainName)) {
+                            j++;
+                        }
+                        String endStation = (String) route.get(j).get("destination_station");
+                        String arrivalTime = (String) route.get(j).get("estimated_arrival");
+
                         System.out.printf("%-54s | %-12s | %-15s | %-12s%n",
-                                trainName + " (" + startStation + " - " + destStation + ")",
-                                leg.get("departure_time"),
-                                leg.get("estimated_arrival"),
+                                trainName + " (" + startStationfromTransit + " - " + endStation + ")",
+                                departureTime,
+                                arrivalTime,
                                 occupancyInfo);
+
+                        i = j + 1;
                     }
                     System.out.println("-".repeat(75));
                 }
