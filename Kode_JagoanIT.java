@@ -435,7 +435,7 @@ class TrainSchedulePredictorApp {
                                                                                                         // 3 rute
                                                                                                         // efisien
                     System.out.println("Route #" + routeNum++);
-                    System.out.printf("%-40s | %-12s | %-15s | %-12s%n", "Train Name", "Departs At", "Est. Arrival",
+                    System.out.printf("%-64s | %-12s | %-15s | %-12s%n", "Train Name", "Departs At", "Est. Arrival",
                             "Occupancy");
                     System.out.println("-".repeat(75));
                     for (Map<String, Object> leg : route) {
@@ -443,11 +443,9 @@ class TrainSchedulePredictorApp {
                                 ? leg.get("occupancy_percentage") + "%"
                                 : "N/A";
                         String trainName = (String) leg.get("train_name");
-                        String legStart = (String) leg.get("start_station");
-                        String legDest = (String) leg.get("destination_station");
                         // Jika legStart dan legDest sama dengan startStation dan destStation, tambahkan
                         // info rute user
-                        System.out.printf("%-40s | %-12s | %-15s | %-12s%n",
+                        System.out.printf("%-64s | %-12s | %-15s | %-12s%n",
                                 trainName + " (" + startStation + " - " + destStation + ")",
                                 leg.get("departure_time"),
                                 leg.get("estimated_arrival"),
