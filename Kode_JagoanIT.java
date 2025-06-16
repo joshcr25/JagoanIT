@@ -408,83 +408,121 @@ class TrainSchedulePredictorApp {
             LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 6, 30);
             Scanner scanner = new Scanner(System.in);
 
-            System.out.println("--- Train Schedule Predictor ---");
-            showMapImage("Rute-KRL-1.png");
-
-            System.out.println("Current Time (Simulated): "
-                    + simulatedCurrentTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + "\n");
-
             List<String> availableStations = app.getAvailableStations();
-            System.out.println("Available Stations:");
-            for (int i = 0; i < availableStations.size(); i++) {
-                System.out.println("  " + (i + 1) + ". " + availableStations.get(i));
-            }
-            System.out.println("-".repeat(30));
 
-            System.out.print("Enter the number for your START station: ");
-            int startStationNum = scanner.nextInt();
-            System.out.print("Enter the number for your DESTINATION station: ");
-            int destStationNum = scanner.nextInt();
+            while (true) {
+                System.out.println("\n=== MENU UTAMA ===");
+                System.out.println("1. Cari rute KRL");
+                System.out.println("2. Lihat Peta");
+                System.out.println("3. Keluar Program");
+                System.out.print("Pilih menu (1-3): ");
+                String menuInput = scanner.nextLine().trim();
 
-            String startStation = availableStations.get(startStationNum - 1);
-            String destStation = availableStations.get(destStationNum - 1);
-
-            if (startStation.equals(destStation)) {
-                System.out.println("\nError: Start and destination stations cannot be the same.");
-                return;
-            }
-
-            System.out.println("\nSearching for trains from '" + startStation + "' to '" + destStation + "'...");
-
-            // --- Ganti ke pencarian multi-transit ---
-            List<List<Map<String, Object>>> routes = app.predictRoutesWithTransit(startStation, destStation,
-                    simulatedCurrentTime, 3);
-
-            if (routes.isEmpty()) {
-                System.out.println("\nSorry, no upcoming trains found for your selected route.");
-            } else {
-                System.out.println("\n--- Upcoming Train Route(s) ---");
-                int routeNum = 1;
-                for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) {
-                    System.out.println("Route #" + routeNum++);
-                    System.out.printf("%-54s | %-12s | %-15s | %-12s%n", "Train Name", "Departs At", "Est. Arrival",
-                            "Occupancy");
-                    System.out.println("-".repeat(75));
-
-                    // Gabungkan leg dengan kereta yang sama
-                    int i = 0;
-                    while (i < route.size()) {
-                        Map<String, Object> leg = route.get(i);
-                        String trainName = (String) leg.get("train_name");
-                        String startStationfromTransit = (String) leg.get("start_station");
-                        String departureTime = (String) leg.get("departure_time");
-                        String occupancyInfo = leg.get("occupancy_percentage") != null
-                                ? leg.get("occupancy_percentage") + "%"
-                                : "N/A";
-                        int j = i;
-                        // Cari leg terakhir dengan kereta yang sama
-                        while (j + 1 < route.size() && route.get(j + 1).get("train_name").equals(trainName)) {
-                            j++;
+                if (menuInput.equals("1")) {
+                    while (true) {
+                        System.out.println("\nDaftar Stasiun:");
+                        for (int i = 0; i < availableStations.size(); i++) {
+                            System.out.printf("%3d. %s%n", i + 1, availableStations.get(i));
                         }
-                        String endStation = (String) route.get(j).get("destination_station");
-                        String arrivalTime = (String) route.get(j).get("estimated_arrival");
+                        System.out.printf("%3d. Kembali ke Menu Utama%n", availableStations.size() + 1);
+                        System.out.print("Pilih nomor stasiun AWAL (atau " + (availableStations.size() + 1)
+                                + " untuk kembali): ");
+                        int startStationNum;
+                        try {
+                            startStationNum = Integer.parseInt(scanner.nextLine().trim());
+                        } catch (NumberFormatException e) {
+                            System.out.println("Input tidak valid.");
+                            continue;
+                        }
+                        if (startStationNum == availableStations.size() + 1)
+                            break;
+                        if (startStationNum < 1 || startStationNum > availableStations.size()) {
+                            System.out.println("Nomor stasiun tidak valid.");
+                            continue;
+                        }
+                        String startStation = availableStations.get(startStationNum - 1);
 
-                        System.out.printf("%-54s | %-12s | %-15s | %-12s%n",
-                                trainName + " (" + startStationfromTransit + " - " + endStation + ")",
-                                departureTime,
-                                arrivalTime,
-                                occupancyInfo);
+                        System.out.print("Pilih nomor stasiun TUJUAN (atau " + (availableStations.size() + 1)
+                                + " untuk kembali): ");
+                        int destStationNum;
+                        try {
+                            destStationNum = Integer.parseInt(scanner.nextLine().trim());
+                        } catch (NumberFormatException e) {
+                            System.out.println("Input tidak valid.");
+                            continue;
+                        }
+                        if (destStationNum == availableStations.size() + 1)
+                            break;
+                        if (destStationNum < 1 || destStationNum > availableStations.size()) {
+                            System.out.println("Nomor stasiun tidak valid.");
+                            continue;
+                        }
+                        String destStation = availableStations.get(destStationNum - 1);
 
-                        i = j + 1;
+                        if (startStation.equals(destStation)) {
+                            System.out.println("\nError: Stasiun awal dan tujuan tidak boleh sama.");
+                            continue;
+                        }
+
+                        System.out.println("\nMencari rute dari '" + startStation + "' ke '" + destStation + "'...");
+                        List<List<Map<String, Object>>> routes = app.predictRoutesWithTransit(startStation, destStation,
+                                simulatedCurrentTime, 3);
+
+                        if (routes.isEmpty()) {
+                            System.out.println("\nMaaf, tidak ditemukan rute kereta untuk pilihan Anda.");
+                        } else {
+                            System.out.println("\n--- Rute Kereta Tersedia ---");
+                            int routeNum = 1;
+                            for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) {
+                                System.out.println("Rute #" + routeNum++);
+                                System.out.printf("%-54s | %-12s | %-15s | %-12s%n", "Nama Kereta", "Berangkat", "Tiba",
+                                        "Okupansi");
+                                System.out.println("-".repeat(75));
+                                int i = 0;
+                                while (i < route.size()) {
+                                    Map<String, Object> leg = route.get(i);
+                                    String trainName = (String) leg.get("train_name");
+                                    String startStationfromTransit = (String) leg.get("start_station");
+                                    String departureTime = (String) leg.get("departure_time");
+                                    String occupancyInfo = leg.get("occupancy_percentage") != null
+                                            ? leg.get("occupancy_percentage") + "%"
+                                            : "N/A";
+                                    int j = i;
+                                    while (j + 1 < route.size()
+                                            && route.get(j + 1).get("train_name").equals(trainName)) {
+                                        j++;
+                                    }
+                                    String endStation = (String) route.get(j).get("destination_station");
+                                    String arrivalTime = (String) route.get(j).get("estimated_arrival");
+
+                                    System.out.printf("%-54s | %-12s | %-15s | %-12s%n",
+                                            trainName + " (" + startStationfromTransit + " - " + endStation + ")",
+                                            departureTime,
+                                            arrivalTime,
+                                            occupancyInfo);
+
+                                    i = j + 1;
+                                }
+                                System.out.println("-".repeat(75));
+                            }
+                        }
+                        // Setelah selesai, kembali ke menu stasiun
                     }
-                    System.out.println("-".repeat(75));
+                } else if (menuInput.equals("2")) {
+                    showMapImage("Rute-KRL-1.png");
+                    // Setelah lihat peta, kembali ke menu utama
+                } else if (menuInput.equals("3")) {
+                    System.out.println("Terima kasih telah menggunakan program ini.");
+                    break;
+                } else {
+                    System.out.println("Pilihan tidak valid.");
                 }
             }
             scanner.close();
         } catch (IOException e) {
             System.out.println("Failed to load train schedule: " + e.getMessage());
-        } catch (InputMismatchException | IndexOutOfBoundsException e) {
-            System.out.println("\nInvalid input. Please enter a valid number from the list.");
+        } catch (Exception e) {
+            System.out.println("\nTerjadi kesalahan: " + e.getMessage());
         }
     }
 }
