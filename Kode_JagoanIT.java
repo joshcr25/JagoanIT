@@ -75,72 +75,210 @@ class TrainSchedule {
 }
 
 class OccupancyPredictor {
-    private static final double BASE_OCCUPANCY = 15.0;
-    private static final double INCREASE_FACTOR_PER_MINUTE = 0.8;
-    private static final double END_OF_ROUTE_DRAIN_FACTOR = 30.0;
+
+    // --- DATA PROFIL BERDASARKAN GAMBAR ---
+    // Profil Pagi Hari (Arah Jakarta Kota)
+    private static final Map<String, Integer> MORNING_PEAK_JAKARTA_BOUND = new HashMap<>();
+    static {
+        MORNING_PEAK_JAKARTA_BOUND.put("Bogor", 5);
+        MORNING_PEAK_JAKARTA_BOUND.put("Depok", 55);
+        MORNING_PEAK_JAKARTA_BOUND.put("Pasar Minggu", 75);
+        MORNING_PEAK_JAKARTA_BOUND.put("Manggarai", 83);
+        MORNING_PEAK_JAKARTA_BOUND.put("Gondangdia", 70);
+        MORNING_PEAK_JAKARTA_BOUND.put("Juanda", 45);
+        MORNING_PEAK_JAKARTA_BOUND.put("Sawah Besar", 20);
+        MORNING_PEAK_JAKARTA_BOUND.put("Jakarta Kota", 5);
+    }
+
+    // Profil Sore Hari (Arah Bogor)
+    private static final Map<String, Integer> EVENING_PEAK_BOGOR_BOUND = new HashMap<>();
+    static {
+        EVENING_PEAK_BOGOR_BOUND.put("Jakarta Kota", 5);
+        EVENING_PEAK_BOGOR_BOUND.put("Juanda", 50);
+        EVENING_PEAK_BOGOR_BOUND.put("Gondangdia", 70);
+        EVENING_PEAK_BOGOR_BOUND.put("Manggarai", 83);
+        EVENING_PEAK_BOGOR_BOUND.put("Pasar Minggu", 70);
+        EVENING_PEAK_BOGOR_BOUND.put("Depok", 40);
+        EVENING_PEAK_BOGOR_BOUND.put("Citayam", 20);
+        EVENING_PEAK_BOGOR_BOUND.put("Bogor", 5);
+    }
+
+    // --- KONFIGURASI WAKTU & OKUPANSI ---
+    private static final LocalTime MORNING_PEAK_START = LocalTime.of(5, 30);
+    private static final LocalTime MORNING_PEAK_END = LocalTime.of(8, 30);
+    private static final LocalTime EVENING_PEAK_START = LocalTime.of(15, 30);
+    private static final LocalTime EVENING_PEAK_END = LocalTime.of(19, 0);
+
+    // Improved: Off-peak occupancy now varies by time of day
+    private static int getOffPeakOccupancy(LocalTime time) {
+        // Paling sepi (11:00 - 14:00): 5% - 35%
+        if (!time.isBefore(LocalTime.of(11, 0)) && time.isBefore(LocalTime.of(14, 0))) {
+            return 15; // Sangat lengang, banyak kursi kosong
+        }
+        // Cukup ramai (09:00 - 10:30 & 14:00 - 15:00): 45% - 55%
+        if ((!time.isBefore(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(10, 30)))
+                || (!time.isBefore(LocalTime.of(14, 0)) && time.isBefore(LocalTime.of(15, 0)))) {
+            return 50; // Lengang, mudah dapat tempat duduk
+        }
+        // Default off-peak (malam, sore, subuh, dll)
+        return 25;
+    }
     private static final int MIN_OCCUPANCY = 5;
     private static final int MAX_OCCUPANCY = 98;
 
-    public static Map<String, Integer> predict(Train train) {
-        List<String> route = train.getRoute();
-        Map<String, Integer> occupancyMap = new HashMap<>();
-        if (route == null || route.isEmpty())
-            return occupancyMap;
+    // Enum untuk merepresentasikan arah perjalanan
+    private enum Direction {
+        JAKARTA_BOUND, BOGOR_BOUND, UNKNOWN
+    }
 
-        final String PEAK_STATION = "Manggarai";
-        final double PEAK_OCCUPANCY = 83.0;
-        final double INITIAL_OCCUPANCY = 15.0;
-        int peakIndex = route.indexOf(PEAK_STATION);
+    /**
+     * Prediksi okupansi dengan memperhitungkan waktu dan arah perjalanan.
+     * 
+     * @param train       Kereta yang akan diprediksi.
+     * @param currentTime Waktu saat ini untuk menentukan konteks jam sibuk.
+     * @return Map berisi prediksi okupansi per stasiun.
+     */
 
-        if (peakIndex == -1) {
-            // Linear fallback
-            Map<String, String> departureTimes = train.getDepartureTimes();
-            if (route.size() < 2 || departureTimes == null) {
-                if (!route.isEmpty())
-                    occupancyMap.put(route.get(0), (int) INITIAL_OCCUPANCY);
-                return occupancyMap;
-            }
-            double currentOccupancy = BASE_OCCUPANCY;
-            occupancyMap.put(route.get(0), (int) currentOccupancy);
-            for (int i = 1; i < route.size(); i++) {
-                String prevStation = route.get(i - 1);
-                String currentStation = route.get(i);
-                if (!departureTimes.containsKey(prevStation) || !departureTimes.containsKey(currentStation)) {
-                    occupancyMap.put(currentStation, (int) currentOccupancy);
-                    continue;
-                }
-                LocalTime prevTime = LocalTime.parse(departureTimes.get(prevStation));
-                LocalTime currentTime = LocalTime.parse(departureTimes.get(currentStation));
-                long travelMinutes = Duration.between(prevTime, currentTime).toMinutes();
-                double occupancyIncrease = travelMinutes * INCREASE_FACTOR_PER_MINUTE;
-                double progressRatio = (double) i / (route.size() - 1);
-                double occupancyDecrease = progressRatio * (END_OF_ROUTE_DRAIN_FACTOR / route.size());
-                currentOccupancy += occupancyIncrease - occupancyDecrease;
-                currentOccupancy = Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, currentOccupancy));
-                occupancyMap.put(currentStation, (int) currentOccupancy);
-            }
-            return occupancyMap;
+    private static String normalizeStation(String s) {
+        return s.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    private static boolean stationEquals(String a, String b) {
+        return normalizeStation(a).equals(normalizeStation(b));
+    }
+
+    // Menentukan arah perjalanan berdasarkan urutan stasiun
+    private static Direction getDirection(List<String> route) {
+        if (route == null || route.size() < 2) return Direction.UNKNOWN;
+        String first = normalizeStation(route.get(0));
+        String last = normalizeStation(route.get(route.size() - 1));
+        if (first.contains("bogor") && last.contains("jakarta")) {
+            return Direction.JAKARTA_BOUND;
+        } else if (first.contains("jakarta") && last.contains("bogor")) {
+            return Direction.BOGOR_BOUND;
         }
+        return Direction.UNKNOWN;
+    }
 
-        // Parabolic model
-        double h = peakIndex;
-        double k = PEAK_OCCUPANCY;
-        double a = (h == 0) ? -0.5 : (INITIAL_OCCUPANCY - k) / (Math.pow(0 - h, 2));
-        for (int i = 0; i < route.size(); i++) {
-            String currentStation = route.get(i);
-            double x = i;
-            double calculatedOccupancy = a * Math.pow(x - h, 2) + k;
-            int finalOccupancy = (int) Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, calculatedOccupancy));
-            occupancyMap.put(currentStation, finalOccupancy);
+    // Mengambil profil okupansi sesuai waktu dan arah
+    private static Map<String, Integer> getPeakProfile(LocalTime time, Direction direction) {
+        if (direction == Direction.JAKARTA_BOUND &&
+            !time.isBefore(MORNING_PEAK_START) && time.isBefore(MORNING_PEAK_END)) {
+            return MORNING_PEAK_JAKARTA_BOUND;
         }
+        if (direction == Direction.BOGOR_BOUND &&
+            !time.isBefore(EVENING_PEAK_START) && time.isBefore(EVENING_PEAK_END)) {
+            return EVENING_PEAK_BOGOR_BOUND;
+        }
+        return null;
+    }
+
+    public static Map<String, Integer> predict(Train train, LocalDateTime currentTime) {
+    List<String> route = train.getRoute();
+    Map<String, Integer> occupancyMap = new HashMap<>();
+    if (route == null || route.isEmpty()) {
         return occupancyMap;
+    }
+
+    LocalTime time = currentTime.toLocalTime();
+    Direction direction = getDirection(route);
+    Map<String, Integer> profile = getPeakProfile(time, direction);
+
+    if (profile != null) {
+        // --- LOGIKA JAM SIBUK ---
+        for (int i = 0; i < route.size(); i++) {
+            String station = route.get(i);
+            boolean found = false;
+            for (String key : profile.keySet()) {
+                if (stationEquals(key, station)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                occupancyMap.put(station, profile.get(station));
+            } else {
+                occupancyMap.put(station, interpolateOccupancy(route, i, profile, time));
+            }
+        }
+    } else {
+        // --- LOGIKA DI LUAR JAM SIBUK (OFF-PEAK) DENGAN INTERPOLASI ---
+        int offPeakStart = MIN_OCCUPANCY;
+        int offPeakEnd = MIN_OCCUPANCY;
+        int offPeakMid = getOffPeakOccupancy(time);
+
+        int n = route.size();
+        for (int i = 0; i < n; i++) {
+            // Interpolasi linear: naik dari MIN ke MID, lalu turun ke MIN
+            double pos = (double) i / (n - 1);
+            int interpolated;
+            if (pos <= 0.5) {
+                interpolated = (int) (offPeakStart + (offPeakMid - offPeakStart) * (pos / 0.5));
+            } else {
+                interpolated = (int) (offPeakMid + (offPeakEnd - offPeakMid) * ((pos - 0.5) / 0.5));
+            }
+            occupancyMap.put(route.get(i), Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, interpolated)));
+        }
+    }
+    return occupancyMap;
+}
+
+    /**
+     * Mengestimasi okupansi stasiun yang tidak ada di profil
+     * dengan mencari stasiun terdekat sebelum dan sesudahnya yang ada di profil.
+     */
+    private static int interpolateOccupancy(List<String> route, int currentIndex, Map<String, Integer> profile, LocalTime time) {
+        String currentStation = route.get(currentIndex);
+
+        // Cari stasiun terdekat sebelumnya yang ada di profil
+        Integer prevStationIndex = null;
+        Integer prevOccupancy = null;
+        for (int i = currentIndex - 1; i >= 0; i--) {
+            for (String key : profile.keySet()) {
+                if (stationEquals(key, route.get(i))) {
+                    prevStationIndex = i;
+                    prevOccupancy = profile.get(key);
+                    break;
+                }
+            }
+            if (prevStationIndex != null)
+                break;
+        }
+
+        // Cari stasiun terdekat sesudahnya yang ada di profil
+        Integer nextStationIndex = null;
+        Integer nextOccupancy = null;
+        for (int i = currentIndex + 1; i < route.size(); i++) {
+            for (String key : profile.keySet()) {
+                if (stationEquals(key, route.get(i))) {
+                    nextStationIndex = i;
+                    nextOccupancy = profile.get(key);
+                    break;
+                }
+            }
+            if (nextStationIndex != null)
+                break;
+        }
+
+        if (prevStationIndex != null && nextStationIndex != null) {
+            double totalStops = nextStationIndex - prevStationIndex;
+            double currentPosition = currentIndex - prevStationIndex;
+            double occupancySlope = (nextOccupancy - prevOccupancy) / totalStops;
+            double estimatedOccupancy = prevOccupancy + (occupancySlope * currentPosition);
+            return (int) Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, estimatedOccupancy));
+        } else if (prevOccupancy != null) {
+            return prevOccupancy;
+        } else if (nextOccupancy != null) {
+            return nextOccupancy;
+        }
+        return getOffPeakOccupancy(time);
     }
 }
 
 class TrainSchedulePredictorApp {
     private final TrainSchedule schedule;
     private long bestDuration = Long.MAX_VALUE;
-    private int maxResultCount = 3;
+    private int maxResultCount = 1; // Tampilkan hanya 1 rute
 
     public TrainSchedulePredictorApp(TrainSchedule schedule) {
         this.schedule = schedule;
@@ -151,7 +289,7 @@ class TrainSchedulePredictorApp {
         List<List<Map<String, Object>>> results = new ArrayList<>();
         Set<String> visited = new HashSet<>();
         bestDuration = Long.MAX_VALUE;
-        dfsFindRoutes(startStation, destStation, currentTime, maxTransit, new ArrayList<>(), results, visited, 0);
+        dfsFindRoutes(startStation, destStation, currentTime, maxTransit, new ArrayList<>(), results, visited, 0, true);
         // Sort hasil
         results.sort(Comparator.comparingInt((List<Map<String, Object>> route) -> route.size())
                 .thenComparing(route -> {
@@ -166,10 +304,11 @@ class TrainSchedulePredictorApp {
         return results;
     }
 
+    // Tambahkan parameter onlyDirectFromStart
     private void dfsFindRoutes(
             String currentStation, String destStation, LocalDateTime currentTime, int remainingTransit,
             List<Map<String, Object>> currentRoute, List<List<Map<String, Object>>> results, Set<String> visited,
-            long currentDuration) {
+            long currentDuration, boolean onlyDirectFromStart) {
         if (remainingTransit < 0 || results.size() >= maxResultCount)
             return;
         String visitKey = currentStation + "|" + currentTime.toString() + "|" + remainingTransit;
@@ -183,6 +322,8 @@ class TrainSchedulePredictorApp {
             if (!route.contains(currentStation))
                 continue;
             int startIdx = route.indexOf(currentStation);
+
+            // Filter: hanya kereta yang memulai dari currentStation jika onlyDirectFromStart
 
             for (int i = startIdx + 1; i < route.size(); i++) {
                 String nextStation = route.get(i);
@@ -205,7 +346,7 @@ class TrainSchedulePredictorApp {
                 if (newDuration > bestDuration)
                     continue;
 
-                Map<String, Integer> occupancyData = OccupancyPredictor.predict(train);
+                Map<String, Integer> occupancyData = OccupancyPredictor.predict(train, currentTime);
                 Integer occupancyAtStart = occupancyData.get(currentStation);
 
                 Map<String, Object> leg = new HashMap<>();
@@ -229,7 +370,7 @@ class TrainSchedulePredictorApp {
                     }
                 } else {
                     dfsFindRoutes(nextStation, destStation, arrTime.plusMinutes(1), remainingTransit - 1, newRoute,
-                            results, new HashSet<>(visited), newDuration);
+                            results, new HashSet<>(visited), newDuration, false);
                 }
             }
         }
@@ -248,7 +389,7 @@ class TrainSchedulePredictorApp {
         try {
             TrainSchedule schedule = new TrainSchedule("train_schedule.csv");
             TrainSchedulePredictorApp app = new TrainSchedulePredictorApp(schedule);
-            LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 4, 30);
+            LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 6, 30);
             Scanner scanner = new Scanner(System.in);
 
             System.out.println("--- Train Schedule Predictor ---");
