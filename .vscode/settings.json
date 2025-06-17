@@ -1,3 +1,7 @@
 {
-    "java.debug.settings.onBuildFailureProceed": true
+    "java.debug.settings.onBuildFailureProceed": true,
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar",
+        "c:\\Users\\acer\\Downloads\\Bahan_Ajar_Sem_2\\Materi DDP2\\junit-platform-console-standalone-1.9.1.jar"
+    ]
 }

@@ -302,95 +302,114 @@ class TrainSchedulePredictorApp {
 
     public List<List<Map<String, Object>>> predictRoutesWithTransit(
             String startStation, String destStation, LocalDateTime currentTime, int maxTransit) {
+        return bfsFindRoutes(startStation, destStation, currentTime, maxTransit);
+    }
+
+    // Tambahkan parameter onlyDirectFromStart
+    public List<List<Map<String, Object>>> bfsFindRoutes(
+            String startStation, String destStation, LocalDateTime currentTime, int maxTransit) {
+        Queue<RouteNode> queue = new LinkedList<>();
         List<List<Map<String, Object>>> results = new ArrayList<>();
         Set<String> visited = new HashSet<>();
-        bestDuration = Long.MAX_VALUE;
-        dfsFindRoutes(startStation, destStation, currentTime, maxTransit, new ArrayList<>(), results, visited, 0, true);
-        // Sort hasil
+
+        queue.add(new RouteNode(startStation, currentTime, new ArrayList<>(), 0));
+        long bestDuration = Long.MAX_VALUE;
+
+        while (!queue.isEmpty()) {
+            RouteNode node = queue.poll();
+            String currentStation = node.station;
+            LocalDateTime time = node.time;
+            List<Map<String, Object>> routeSoFar = node.route;
+            int transitCount = node.transit;
+
+            if (transitCount > maxTransit)
+                continue;
+
+            String visitKey = currentStation + "|" + time.toString() + "|" + transitCount;
+            if (visited.contains(visitKey))
+                continue;
+            visited.add(visitKey);
+
+            for (Train train : schedule.getTrains()) {
+                List<String> route = train.getRoute();
+                Map<String, String> departureTimes = train.getDepartureTimes();
+                if (!route.contains(currentStation))
+                    continue;
+                int startIdx = route.indexOf(currentStation);
+
+                for (int i = startIdx + 1; i < route.size(); i++) {
+                    String nextStation = route.get(i);
+                    String depTimeStr = departureTimes.get(currentStation);
+                    String arrTimeStr = departureTimes.get(nextStation);
+                    if (depTimeStr == null || arrTimeStr == null)
+                        continue;
+
+                    LocalDateTime depTime = time.toLocalDate().atTime(LocalTime.parse(depTimeStr));
+                    LocalDateTime arrTime = time.toLocalDate().atTime(LocalTime.parse(arrTimeStr));
+                    if (depTime.isBefore(time))
+                        continue;
+
+                    long newDuration = routeSoFar.isEmpty()
+                            ? Duration.between(time, arrTime).toMinutes()
+                            : Duration.between((LocalDateTime) routeSoFar.get(0).get("_departure_dt"), arrTime)
+                                    .toMinutes();
+
+                    if (newDuration > bestDuration)
+                        continue;
+
+                    Map<String, Integer> occupancyData = OccupancyPredictor.predict(train, time);
+                    Integer occupancyAtStart = occupancyData.get(currentStation);
+
+                    Map<String, Object> leg = new HashMap<>();
+                    leg.put("train_id", train.getId());
+                    leg.put("train_name", train.getName());
+                    leg.put("start_station", currentStation);
+                    leg.put("destination_station", nextStation);
+                    leg.put("departure_time", depTime.format(DateTimeFormatter.ofPattern("HH:mm")));
+                    leg.put("estimated_arrival", arrTime.format(DateTimeFormatter.ofPattern("HH:mm")));
+                    leg.put("_departure_dt", depTime);
+                    leg.put("_arrival_dt", arrTime);
+                    leg.put("occupancy_percentage", occupancyAtStart);
+
+                    List<Map<String, Object>> newRoute = new ArrayList<>(routeSoFar);
+                    newRoute.add(leg);
+
+                    if (nextStation.equals(destStation)) {
+                        results.add(newRoute);
+                        if (newDuration < bestDuration)
+                            bestDuration = newDuration;
+                    } else {
+                        queue.add(new RouteNode(nextStation, arrTime.plusMinutes(1), newRoute, transitCount + 1));
+                    }
+                }
+            }
+        }
+        // Sort hasil seperti sebelumnya
         results.sort(Comparator.comparingInt((List<Map<String, Object>> route) -> route.size())
-                .thenComparing(route -> {
+                .thenComparing((List<Map<String, Object>> route) -> {
                     LocalDateTime dep = (LocalDateTime) route.get(0).get("_departure_dt");
                     LocalDateTime arr = (LocalDateTime) route.get(route.size() - 1).get("_arrival_dt");
                     return Duration.between(dep, arr).toMinutes();
                 }));
-        // Batasi hasil
         if (results.size() > maxResultCount) {
             return results.subList(0, maxResultCount);
         }
         return results;
     }
 
-    // Tambahkan parameter onlyDirectFromStart
-    private void dfsFindRoutes(
-            String currentStation, String destStation, LocalDateTime currentTime, int remainingTransit,
-            List<Map<String, Object>> currentRoute, List<List<Map<String, Object>>> results, Set<String> visited,
-            long currentDuration, boolean onlyDirectFromStart) {
-        if (remainingTransit < 0 || results.size() >= maxResultCount)
-            return;
-        String visitKey = currentStation + "|" + currentTime.toString() + "|" + remainingTransit;
-        if (visited.contains(visitKey))
-            return;
-        visited.add(visitKey);
+    // Tambahkan class bantu untuk BFS
+    private static class RouteNode {
+        String station;
+        LocalDateTime time;
+        List<Map<String, Object>> route;
+        int transit;
 
-        for (Train train : schedule.getTrains()) {
-            List<String> route = train.getRoute();
-            Map<String, String> departureTimes = train.getDepartureTimes();
-            if (!route.contains(currentStation))
-                continue;
-            int startIdx = route.indexOf(currentStation);
-
-            // Cari stasiun terjauh yang bisa dicapai dengan kereta ini
-            for (int i = route.size() - 1; i > startIdx; i--) {
-                String nextStation = route.get(i);
-                String depTimeStr = departureTimes.get(currentStation);
-                String arrTimeStr = departureTimes.get(nextStation);
-                if (depTimeStr == null || arrTimeStr == null)
-                    continue;
-
-                LocalDateTime depTime = currentTime.toLocalDate().atTime(LocalTime.parse(depTimeStr));
-                LocalDateTime arrTime = currentTime.toLocalDate().atTime(LocalTime.parse(arrTimeStr));
-                if (depTime.isBefore(currentTime))
-                    continue;
-
-                long newDuration = currentRoute.isEmpty()
-                        ? Duration.between(currentTime, arrTime).toMinutes()
-                        : Duration.between((LocalDateTime) currentRoute.get(0).get("_departure_dt"), arrTime)
-                                .toMinutes();
-
-                if (newDuration > bestDuration)
-                    continue;
-
-                Map<String, Integer> occupancyData = OccupancyPredictor.predict(train, currentTime);
-                Integer occupancyAtStart = occupancyData.get(currentStation);
-
-                Map<String, Object> leg = new HashMap<>();
-                leg.put("train_id", train.getId());
-                leg.put("train_name", train.getName());
-                leg.put("start_station", currentStation);
-                leg.put("destination_station", nextStation);
-                leg.put("departure_time", depTime.format(DateTimeFormatter.ofPattern("HH:mm")));
-                leg.put("estimated_arrival", arrTime.format(DateTimeFormatter.ofPattern("HH:mm")));
-                leg.put("_departure_dt", depTime);
-                leg.put("_arrival_dt", arrTime);
-                leg.put("occupancy_percentage", occupancyAtStart);
-
-                List<Map<String, Object>> newRoute = new ArrayList<>(currentRoute);
-                newRoute.add(leg);
-
-                if (nextStation.equals(destStation)) {
-                    results.add(newRoute);
-                    if (newDuration < bestDuration) {
-                        bestDuration = newDuration;
-                    }
-                } else {
-                    dfsFindRoutes(nextStation, destStation, arrTime.plusMinutes(1), remainingTransit - 1, newRoute,
-                            results, new HashSet<>(visited), newDuration, false);
-                }
-                // Hanya ambil satu leg terjauh untuk satu kereta
-                break;
-            }
+        RouteNode(String station, LocalDateTime time, List<Map<String, Object>> route, int transit) {
+            this.station = station;
+            this.time = time;
+            this.route = route;
+            this.transit = transit;
         }
-        visited.remove(visitKey);
     }
 
     // Tambahkan metode ini:
@@ -405,15 +424,15 @@ class TrainSchedulePredictorApp {
         try {
             TrainSchedule schedule = new TrainSchedule("train_schedule.csv");
             TrainSchedulePredictorApp app = new TrainSchedulePredictorApp(schedule);
-            LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 6, 30);
+            LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 12, 30);
             Scanner scanner = new Scanner(System.in);
 
             List<String> availableStations = app.getAvailableStations();
 
             while (true) {
                 System.out.println("\n=== MENU UTAMA ===");
-                System.out.println("1. Cari rute KRL");
-                System.out.println("2. Lihat Peta");
+                System.out.println("1. Cari rute KRL Jabodetabek");
+                System.out.println("2. Lihat Peta KRL Jabodetabek");
                 System.out.println("3. Keluar Program");
                 System.out.print("Pilih menu (1-3): ");
                 String menuInput = scanner.nextLine().trim();
@@ -475,7 +494,7 @@ class TrainSchedulePredictorApp {
                             int routeNum = 1;
                             for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) {
                                 System.out.println("Rute #" + routeNum++);
-                                System.out.printf("%-54s | %-12s | %-15s | %-12s%n", "Nama Kereta", "Berangkat", "Tiba",
+                                System.out.printf("%-70s | %-12s | %-15s | %-12s%n", "Nama Kereta", "Berangkat", "Tiba",
                                         "Okupansi");
                                 System.out.println("-".repeat(75));
                                 int i = 0;
@@ -495,7 +514,7 @@ class TrainSchedulePredictorApp {
                                     String endStation = (String) route.get(j).get("destination_station");
                                     String arrivalTime = (String) route.get(j).get("estimated_arrival");
 
-                                    System.out.printf("%-54s | %-12s | %-15s | %-12s%n",
+                                    System.out.printf("%-70s | %-12s | %-15s | %-12s%n",
                                             trainName + " (" + startStationfromTransit + " - " + endStation + ")",
                                             departureTime,
                                             arrivalTime,
