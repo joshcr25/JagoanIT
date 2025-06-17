@@ -422,7 +422,7 @@ class TrainSchedulePredictorApp {
 
     public static void main(String[] args) {
         try {
-            TrainSchedule schedule = new TrainSchedule("train_schedule.csv");
+            TrainSchedule schedule = new TrainSchedule("train_schedule_Jabodetabek.csv");
             TrainSchedulePredictorApp app = new TrainSchedulePredictorApp(schedule);
             LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 12, 30);
             Scanner scanner = new Scanner(System.in);
