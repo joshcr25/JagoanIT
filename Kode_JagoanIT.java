@@ -1,9 +1,20 @@
-import java.awt.BorderLayout;
-import java.io.*;
-import java.time.*;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+
+// Kelas Train, TrainSchedule, dan OccupancyPredictor tetap sama persis
+// Tidak perlu diubah dari kode asli Anda
 
 class Train {
     private final String id;
@@ -18,21 +29,10 @@ class Train {
         this.departureTimes = departureTimes;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public List<String> getRoute() {
-        return route;
-    }
-
-    public Map<String, String> getDepartureTimes() {
-        return departureTimes;
-    }
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public List<String> getRoute() { return route; }
+    public Map<String, String> getDepartureTimes() { return departureTimes; }
 }
 
 class TrainSchedule {
@@ -45,8 +45,8 @@ class TrainSchedule {
     private List<Train> loadFromCSV(String filename) throws IOException {
         List<Train> schedule = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
             br.readLine(); // Skip header
+            String line;
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
                 String id = values[0];
@@ -64,9 +64,7 @@ class TrainSchedule {
         return schedule;
     }
 
-    public List<Train> getTrains() {
-        return trains;
-    }
+    public List<Train> getTrains() { return trains; }
 
     public Set<String> getAllStations() {
         Set<String> stations = new HashSet<>();
@@ -77,227 +75,174 @@ class TrainSchedule {
 }
 
 class OccupancyPredictor {
+    private enum Line { BOGOR, CIKARANG, RANGKASBITUNG, TANGERANG, TANJUNG_PRIOK, UNKNOWN }
+    private enum Direction { MENUJU_JAKARTA, MENUJU_BOGOR, MENUJU_CIKARANG, MENUJU_RANGKASBITUNG, MENUJU_TANGERANG, DUA_ARAH, UNKNOWN }
+    private enum TimePeriod { PUNCAK_PAGI, SIANG, PUNCAK_SORE, MALAM, AKHIR_PEKAN }
+    private static final Map<Line, Map<Direction, Map<TimePeriod, Integer>>> occupancyMatrix = new HashMap<>();
 
-    // --- DATA PROFIL BERDASARKAN GAMBAR ---
-    // Profil Pagi Hari (Arah Jakarta Kota)
-    private static final Map<String, Integer> MORNING_PEAK_JAKARTA_BOUND = new HashMap<>();
     static {
-        MORNING_PEAK_JAKARTA_BOUND.put("Bogor", 5);
-        MORNING_PEAK_JAKARTA_BOUND.put("Depok", 55);
-        MORNING_PEAK_JAKARTA_BOUND.put("Pasar Minggu", 75);
-        MORNING_PEAK_JAKARTA_BOUND.put("Manggarai", 83);
-        MORNING_PEAK_JAKARTA_BOUND.put("Gondangdia", 70);
-        MORNING_PEAK_JAKARTA_BOUND.put("Juanda", 45);
-        MORNING_PEAK_JAKARTA_BOUND.put("Sawah Besar", 20);
-        MORNING_PEAK_JAKARTA_BOUND.put("Jakarta Kota", 5);
-    }
+        java.util.function.Function<String, Integer> avg = rangeStr -> {
+            String[] parts = rangeStr.replaceAll("[^0-9\\-]", "").split("-");
+            if (parts.length == 1) return Integer.parseInt(parts[0]);
+            return (Integer.parseInt(parts[0]) + Integer.parseInt(parts[1])) / 2;
+        };
+        Map<Direction, Map<TimePeriod, Integer>> bogorLine = new HashMap<>();
+        Map<TimePeriod, Integer> bogorToJakarta = new HashMap<>();
+        bogorToJakarta.put(TimePeriod.PUNCAK_PAGI, avg.apply("150-200%+"));
+        bogorToJakarta.put(TimePeriod.SIANG, avg.apply("40-60%"));
+        bogorToJakarta.put(TimePeriod.PUNCAK_SORE, avg.apply("70-100%"));
+        bogorToJakarta.put(TimePeriod.MALAM, avg.apply("50-80%"));
+        bogorToJakarta.put(TimePeriod.AKHIR_PEKAN, avg.apply("90-120%"));
+        Map<TimePeriod, Integer> bogorToBogor = new HashMap<>();
+        bogorToBogor.put(TimePeriod.PUNCAK_PAGI, avg.apply("60-90%"));
+        bogorToBogor.put(TimePeriod.SIANG, avg.apply("50-70%"));
+        bogorToBogor.put(TimePeriod.PUNCAK_SORE, avg.apply("140-180%"));
+        bogorToBogor.put(TimePeriod.MALAM, avg.apply("80-110%"));
+        bogorToBogor.put(TimePeriod.AKHIR_PEKAN, avg.apply("70-100%"));
+        bogorLine.put(Direction.MENUJU_JAKARTA, bogorToJakarta);
+        bogorLine.put(Direction.MENUJU_BOGOR, bogorToBogor);
+        occupancyMatrix.put(Line.BOGOR, bogorLine);
 
-    // Profil Sore Hari (Arah Bogor)
-    private static final Map<String, Integer> EVENING_PEAK_BOGOR_BOUND = new HashMap<>();
-    static {
-        EVENING_PEAK_BOGOR_BOUND.put("Jakarta Kota", 5);
-        EVENING_PEAK_BOGOR_BOUND.put("Juanda", 50);
-        EVENING_PEAK_BOGOR_BOUND.put("Gondangdia", 70);
-        EVENING_PEAK_BOGOR_BOUND.put("Manggarai", 83);
-        EVENING_PEAK_BOGOR_BOUND.put("Pasar Minggu", 70);
-        EVENING_PEAK_BOGOR_BOUND.put("Depok", 40);
-        EVENING_PEAK_BOGOR_BOUND.put("Citayam", 20);
-        EVENING_PEAK_BOGOR_BOUND.put("Bogor", 5);
-    }
+        Map<Direction, Map<TimePeriod, Integer>> cikarangLine = new HashMap<>();
+        Map<TimePeriod, Integer> toJakarta = new HashMap<>();
+        toJakarta.put(TimePeriod.PUNCAK_PAGI, avg.apply("130-170%"));
+        toJakarta.put(TimePeriod.SIANG, avg.apply("35-55%"));
+        toJakarta.put(TimePeriod.PUNCAK_SORE, avg.apply("60-80%"));
+        toJakarta.put(TimePeriod.MALAM, avg.apply("40-60%"));
+        toJakarta.put(TimePeriod.AKHIR_PEKAN, avg.apply("60-90%"));
+        Map<TimePeriod, Integer> toCikarang = new HashMap<>();
+        toCikarang.put(TimePeriod.PUNCAK_PAGI, avg.apply("50-70%"));
+        toCikarang.put(TimePeriod.SIANG, avg.apply("40-60%"));
+        toCikarang.put(TimePeriod.PUNCAK_SORE, avg.apply("120-160%"));
+        toCikarang.put(TimePeriod.MALAM, avg.apply("70-100%"));
+        toCikarang.put(TimePeriod.AKHIR_PEKAN, avg.apply("60-90%"));
+        cikarangLine.put(Direction.MENUJU_JAKARTA, toJakarta);
+        cikarangLine.put(Direction.MENUJU_CIKARANG, toCikarang);
+        occupancyMatrix.put(Line.CIKARANG, cikarangLine);
 
-    // --- KONFIGURASI WAKTU & OKUPANSI ---
+        Map<Direction, Map<TimePeriod, Integer>> rangkasLine = new HashMap<>();
+        Map<TimePeriod, Integer> rangkasToJakarta = new HashMap<>();
+        rangkasToJakarta.put(TimePeriod.PUNCAK_PAGI, avg.apply("160-220%+"));
+        rangkasToJakarta.put(TimePeriod.SIANG, avg.apply("50-70%"));
+        rangkasToJakarta.put(TimePeriod.PUNCAK_SORE, avg.apply("80-110%"));
+        rangkasToJakarta.put(TimePeriod.MALAM, avg.apply("60-90%"));
+        rangkasToJakarta.put(TimePeriod.AKHIR_PEKAN, avg.apply("80-110%"));
+        Map<TimePeriod, Integer> rangkasToRangkas = new HashMap<>();
+        rangkasToRangkas.put(TimePeriod.PUNCAK_PAGI, avg.apply("60-80%"));
+        rangkasToRangkas.put(TimePeriod.SIANG, avg.apply("60-80%"));
+        rangkasToRangkas.put(TimePeriod.PUNCAK_SORE, avg.apply("150-200%"));
+        rangkasToRangkas.put(TimePeriod.MALAM, avg.apply("90-120%"));
+        rangkasToRangkas.put(TimePeriod.AKHIR_PEKAN, avg.apply("80-110%"));
+        rangkasLine.put(Direction.MENUJU_JAKARTA, rangkasToJakarta);
+        rangkasLine.put(Direction.MENUJU_RANGKASBITUNG, rangkasToRangkas);
+        occupancyMatrix.put(Line.RANGKASBITUNG, rangkasLine);
+
+        Map<Direction, Map<TimePeriod, Integer>> tangerangLine = new HashMap<>();
+        Map<TimePeriod, Integer> tangerangToJakarta = new HashMap<>();
+        tangerangToJakarta.put(TimePeriod.PUNCAK_PAGI, avg.apply("120-160%"));
+        tangerangToJakarta.put(TimePeriod.SIANG, avg.apply("40-60%"));
+        tangerangToJakarta.put(TimePeriod.PUNCAK_SORE, avg.apply("60-80%"));
+        tangerangToJakarta.put(TimePeriod.MALAM, avg.apply("45-65%"));
+        tangerangToJakarta.put(TimePeriod.AKHIR_PEKAN, avg.apply("50-75%"));
+        Map<TimePeriod, Integer> tangerangToTangerang = new HashMap<>();
+        tangerangToTangerang.put(TimePeriod.PUNCAK_PAGI, avg.apply("50-70%"));
+        tangerangToTangerang.put(TimePeriod.SIANG, avg.apply("45-65%"));
+        tangerangToTangerang.put(TimePeriod.PUNCAK_SORE, avg.apply("110-150%"));
+        tangerangToTangerang.put(TimePeriod.MALAM, avg.apply("70-90%"));
+        tangerangToTangerang.put(TimePeriod.AKHIR_PEKAN, avg.apply("50-75%"));
+        tangerangLine.put(Direction.MENUJU_JAKARTA, tangerangToJakarta);
+        tangerangLine.put(Direction.MENUJU_TANGERANG, tangerangToTangerang);
+        occupancyMatrix.put(Line.TANGERANG, tangerangLine);
+
+        Map<Direction, Map<TimePeriod, Integer>> priokLine = new HashMap<>();
+        Map<TimePeriod, Integer> priokTwoWay = new HashMap<>();
+        priokTwoWay.put(TimePeriod.PUNCAK_PAGI, avg.apply("20-40%"));
+        priokTwoWay.put(TimePeriod.SIANG, avg.apply("15-30%"));
+        priokTwoWay.put(TimePeriod.PUNCAK_SORE, avg.apply("25-40%"));
+        priokTwoWay.put(TimePeriod.MALAM, avg.apply("15-30%"));
+        priokTwoWay.put(TimePeriod.AKHIR_PEKAN, avg.apply("20-35%"));
+        priokLine.put(Direction.DUA_ARAH, priokTwoWay);
+        occupancyMatrix.put(Line.TANJUNG_PRIOK, priokLine);
+    }
     private static final LocalTime MORNING_PEAK_START = LocalTime.of(5, 30);
     private static final LocalTime MORNING_PEAK_END = LocalTime.of(8, 30);
+    private static final LocalTime DAYTIME_START = LocalTime.of(9, 0);
+    private static final LocalTime DAYTIME_END = LocalTime.of(15, 0);
     private static final LocalTime EVENING_PEAK_START = LocalTime.of(15, 30);
     private static final LocalTime EVENING_PEAK_END = LocalTime.of(19, 0);
-
-    // Improved: Off-peak occupancy now varies by time of day
-    private static int getOffPeakOccupancy(LocalTime time) {
-        // Paling sepi (11:00 - 14:00): 5% - 35%
-        if (!time.isBefore(LocalTime.of(11, 0)) && time.isBefore(LocalTime.of(14, 0))) {
-            return 15; // Sangat lengang, banyak kursi kosong
-        }
-        // Cukup ramai (09:00 - 10:30 & 14:00 - 15:00): 45% - 55%
-        if ((!time.isBefore(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(10, 30)))
-                || (!time.isBefore(LocalTime.of(14, 0)) && time.isBefore(LocalTime.of(15, 0)))) {
-            return 50; // Lengang, mudah dapat tempat duduk
-        }
-        // Default off-peak (malam, sore, subuh, dll)
-        return 25;
-    }
-
     private static final int MIN_OCCUPANCY = 5;
     private static final int MAX_OCCUPANCY = 98;
-
-    // Enum untuk merepresentasikan arah perjalanan
-    private enum Direction {
-        JAKARTA_BOUND, BOGOR_BOUND, UNKNOWN
+    private static final int DEFAULT_OCCUPANCY = 30;
+    private static String normalizeStation(String s) { return s.trim().toLowerCase().replaceAll("\\s+", " "); }
+    private static Line getLine(List<String> route) {
+        Set<String> routeSet = new HashSet<>();
+        for (String station : route) routeSet.add(normalizeStation(station));
+        if (routeSet.contains("bekasi") || routeSet.contains("cikarang") || routeSet.contains("tambun")) return Line.CIKARANG;
+        if (routeSet.contains("parung panjang") || routeSet.contains("serpong") || routeSet.contains("rangkasbitung") || routeSet.contains("kebayoran")) return Line.RANGKASBITUNG;
+        if (routeSet.contains("rawa buaya") || routeSet.contains("batu ceper") || routeSet.contains("tangerang")) return Line.TANGERANG;
+        if (routeSet.contains("ancol") || routeSet.contains("tanjung priok")) return Line.TANJUNG_PRIOK;
+        if (routeSet.contains("depok") || routeSet.contains("citayam") || routeSet.contains("bogor") || routeSet.contains("tebet")) return Line.BOGOR;
+        return Line.UNKNOWN;
     }
-
-    /**
-     * Prediksi okupansi dengan memperhitungkan waktu dan arah perjalanan.
-     * 
-     * @param train       Kereta yang akan diprediksi.
-     * @param currentTime Waktu saat ini untuk menentukan konteks jam sibuk.
-     * @return Map berisi prediksi okupansi per stasiun.
-     */
-
-    private static String normalizeStation(String s) {
-        return s.trim().toLowerCase().replaceAll("\\s+", " ");
-    }
-
-    private static boolean stationEquals(String a, String b) {
-        return normalizeStation(a).equals(normalizeStation(b));
-    }
-
-    // Menentukan arah perjalanan berdasarkan urutan stasiun
     private static Direction getDirection(List<String> route) {
-        if (route == null || route.size() < 2)
-            return Direction.UNKNOWN;
+        if (route == null || route.size() < 2) return Direction.UNKNOWN;
         String first = normalizeStation(route.get(0));
         String last = normalizeStation(route.get(route.size() - 1));
-        if (first.contains("bogor") && last.contains("jakarta")) {
-            return Direction.JAKARTA_BOUND;
-        } else if (first.contains("jakarta") && last.contains("bogor")) {
-            return Direction.BOGOR_BOUND;
-        }
+        if (first.contains("tanjung priok") || last.contains("tanjung priok")) return Direction.DUA_ARAH;
+        if (last.contains("jakarta") || last.contains("duri") || last.contains("angke") || last.contains("tanah abang")) return Direction.MENUJU_JAKARTA;
+        if (last.contains("bogor") || last.contains("nambo")) return Direction.MENUJU_BOGOR;
+        if (last.contains("cikarang")) return Direction.MENUJU_CIKARANG;
+        if (last.contains("rangkasbitung") || last.contains("parung panjang") || last.contains("serpong")) return Direction.MENUJU_RANGKASBITUNG;
+        if (last.contains("tangerang")) return Direction.MENUJU_TANGERANG;
         return Direction.UNKNOWN;
     }
-
-    // Mengambil profil okupansi sesuai waktu dan arah
-    private static Map<String, Integer> getPeakProfile(LocalTime time, Direction direction) {
-        if (direction == Direction.JAKARTA_BOUND &&
-                !time.isBefore(MORNING_PEAK_START) && time.isBefore(MORNING_PEAK_END)) {
-            return MORNING_PEAK_JAKARTA_BOUND;
-        }
-        if (direction == Direction.BOGOR_BOUND &&
-                !time.isBefore(EVENING_PEAK_START) && time.isBefore(EVENING_PEAK_END)) {
-            return EVENING_PEAK_BOGOR_BOUND;
-        }
-        return null;
+    private static TimePeriod getTimePeriod(LocalDateTime dateTime) {
+        DayOfWeek day = dateTime.getDayOfWeek();
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) return TimePeriod.AKHIR_PEKAN;
+        LocalTime time = dateTime.toLocalTime();
+        if (!time.isBefore(MORNING_PEAK_START) && time.isBefore(MORNING_PEAK_END)) return TimePeriod.PUNCAK_PAGI;
+        if (!time.isBefore(DAYTIME_START) && time.isBefore(DAYTIME_END)) return TimePeriod.SIANG;
+        if (!time.isBefore(EVENING_PEAK_START) && time.isBefore(EVENING_PEAK_END)) return TimePeriod.PUNCAK_SORE;
+        return TimePeriod.MALAM;
     }
-
     public static Map<String, Integer> predict(Train train, LocalDateTime currentTime) {
-        List<String> route = train.getRoute();
         Map<String, Integer> occupancyMap = new HashMap<>();
-        if (route == null || route.isEmpty()) {
-            return occupancyMap;
-        }
-
-        LocalTime time = currentTime.toLocalTime();
+        List<String> route = train.getRoute();
+        if (route == null || route.isEmpty()) return occupancyMap;
+        Line line = getLine(route);
         Direction direction = getDirection(route);
-        Map<String, Integer> profile = getPeakProfile(time, direction);
-
-        if (profile != null) {
-            // --- LOGIKA JAM SIBUK ---
-            for (int i = 0; i < route.size(); i++) {
-                String station = route.get(i);
-                boolean found = false;
-                for (String key : profile.keySet()) {
-                    if (stationEquals(key, station)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) {
-                    occupancyMap.put(station, profile.get(station));
-                } else {
-                    occupancyMap.put(station, interpolateOccupancy(route, i, profile, time));
-                }
-            }
-        } else {
-            // --- LOGIKA DI LUAR JAM SIBUK (OFF-PEAK) DENGAN INTERPOLASI ---
-            int offPeakStart = MIN_OCCUPANCY;
-            int offPeakEnd = MIN_OCCUPANCY;
-            int offPeakMid = getOffPeakOccupancy(time);
-
-            int n = route.size();
-            for (int i = 0; i < n; i++) {
-                // Interpolasi linear: naik dari MIN ke MID, lalu turun ke MIN
-                double pos = (double) i / (n - 1);
-                int interpolated;
-                if (pos <= 0.5) {
-                    interpolated = (int) (offPeakStart + (offPeakMid - offPeakStart) * (pos / 0.5));
-                } else {
-                    interpolated = (int) (offPeakMid + (offPeakEnd - offPeakMid) * ((pos - 0.5) / 0.5));
-                }
-                occupancyMap.put(route.get(i), Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, interpolated)));
-            }
-        }
+        TimePeriod period = getTimePeriod(currentTime);
+        int occupancy = occupancyMatrix
+                .getOrDefault(line, Collections.emptyMap())
+                .getOrDefault(direction, Collections.emptyMap())
+                .getOrDefault(period, DEFAULT_OCCUPANCY);
+        int finalOccupancy = Math.max(MIN_OCCUPANCY, Math.min(occupancy, MAX_OCCUPANCY));
+        for (String station : route) occupancyMap.put(station, finalOccupancy);
         return occupancyMap;
-    }
-
-    /**
-     * Mengestimasi okupansi stasiun yang tidak ada di profil
-     * dengan mencari stasiun terdekat sebelum dan sesudahnya yang ada di profil.
-     */
-    private static int interpolateOccupancy(List<String> route, int currentIndex, Map<String, Integer> profile,
-            LocalTime time) {
-        String currentStation = route.get(currentIndex);
-
-        // Cari stasiun terdekat sebelumnya yang ada di profil
-        Integer prevStationIndex = null;
-        Integer prevOccupancy = null;
-        for (int i = currentIndex - 1; i >= 0; i--) {
-            for (String key : profile.keySet()) {
-                if (stationEquals(key, route.get(i))) {
-                    prevStationIndex = i;
-                    prevOccupancy = profile.get(key);
-                    break;
-                }
-            }
-            if (prevStationIndex != null)
-                break;
-        }
-
-        // Cari stasiun terdekat sesudahnya yang ada di profil
-        Integer nextStationIndex = null;
-        Integer nextOccupancy = null;
-        for (int i = currentIndex + 1; i < route.size(); i++) {
-            for (String key : profile.keySet()) {
-                if (stationEquals(key, route.get(i))) {
-                    nextStationIndex = i;
-                    nextOccupancy = profile.get(key);
-                    break;
-                }
-            }
-            if (nextStationIndex != null)
-                break;
-        }
-
-        if (prevStationIndex != null && nextStationIndex != null) {
-            double totalStops = nextStationIndex - prevStationIndex;
-            double currentPosition = currentIndex - prevStationIndex;
-            double occupancySlope = (nextOccupancy - prevOccupancy) / totalStops;
-            double estimatedOccupancy = prevOccupancy + (occupancySlope * currentPosition);
-            return (int) Math.max(MIN_OCCUPANCY, Math.min(MAX_OCCUPANCY, estimatedOccupancy));
-        } else if (prevOccupancy != null) {
-            return prevOccupancy;
-        } else if (nextOccupancy != null) {
-            return nextOccupancy;
-        }
-        return getOffPeakOccupancy(time);
     }
 }
 
 class TrainSchedulePredictorApp {
     private final TrainSchedule schedule;
-    private long bestDuration = Long.MAX_VALUE;
-    private int maxResultCount = 1; // Tampilkan hanya 1 rute
+    private final int maxResultCount = 3; // Tampilkan hingga 3 rute terbaik
 
     public TrainSchedulePredictorApp(TrainSchedule schedule) {
         this.schedule = schedule;
     }
 
     public static void showMapImage(String imagePath) {
-        JFrame frame = new JFrame("Peta Rute KRL");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        ImageIcon icon = new ImageIcon(imagePath);
-        JLabel label = new JLabel(icon);
-        frame.getContentPane().add(label, BorderLayout.CENTER);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        try {
+            ImageIcon icon = new ImageIcon(new ImageIcon(imagePath).getImage().getScaledInstance(800, 600, Image.SCALE_SMOOTH));
+            JLabel label = new JLabel(icon);
+            JFrame frame = new JFrame("Peta Rute KRL");
+            frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            frame.getContentPane().add(label, BorderLayout.CENTER);
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Gagal memuat gambar peta: " + imagePath + "\nError: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     public List<List<Map<String, Object>>> predictRoutesWithTransit(
@@ -305,7 +250,20 @@ class TrainSchedulePredictorApp {
         return bfsFindRoutes(startStation, destStation, currentTime, maxTransit);
     }
 
-    // Tambahkan parameter onlyDirectFromStart
+    private static class RouteNode {
+        String station;
+        LocalDateTime time;
+        List<Map<String, Object>> route;
+        int transit;
+
+        RouteNode(String station, LocalDateTime time, List<Map<String, Object>> route, int transit) {
+            this.station = station;
+            this.time = time;
+            this.route = route;
+            this.transit = transit;
+        }
+    }
+
     public List<List<Map<String, Object>>> bfsFindRoutes(
             String startStation, String destStation, LocalDateTime currentTime, int maxTransit) {
         Queue<RouteNode> queue = new LinkedList<>();
@@ -322,40 +280,33 @@ class TrainSchedulePredictorApp {
             List<Map<String, Object>> routeSoFar = node.route;
             int transitCount = node.transit;
 
-            if (transitCount > maxTransit)
-                continue;
+            if (transitCount > maxTransit) continue;
 
-            String visitKey = currentStation + "|" + time.toString() + "|" + transitCount;
-            if (visited.contains(visitKey))
-                continue;
+            String visitKey = currentStation + "|" + time.toLocalDate().toString() + "|" + transitCount;
+            if (visited.contains(visitKey)) continue;
             visited.add(visitKey);
 
             for (Train train : schedule.getTrains()) {
                 List<String> route = train.getRoute();
                 Map<String, String> departureTimes = train.getDepartureTimes();
-                if (!route.contains(currentStation))
-                    continue;
+                if (!route.contains(currentStation)) continue;
                 int startIdx = route.indexOf(currentStation);
 
                 for (int i = startIdx + 1; i < route.size(); i++) {
                     String nextStation = route.get(i);
                     String depTimeStr = departureTimes.get(currentStation);
                     String arrTimeStr = departureTimes.get(nextStation);
-                    if (depTimeStr == null || arrTimeStr == null)
-                        continue;
+                    if (depTimeStr == null || arrTimeStr == null) continue;
 
                     LocalDateTime depTime = time.toLocalDate().atTime(LocalTime.parse(depTimeStr));
                     LocalDateTime arrTime = time.toLocalDate().atTime(LocalTime.parse(arrTimeStr));
-                    if (depTime.isBefore(time))
-                        continue;
+                    if (depTime.isBefore(time)) continue;
 
                     long newDuration = routeSoFar.isEmpty()
                             ? Duration.between(time, arrTime).toMinutes()
-                            : Duration.between((LocalDateTime) routeSoFar.get(0).get("_departure_dt"), arrTime)
-                                    .toMinutes();
+                            : Duration.between((LocalDateTime) routeSoFar.get(0).get("_departure_dt"), arrTime).toMinutes();
 
-                    if (newDuration > bestDuration)
-                        continue;
+                    if (!results.isEmpty() && newDuration > bestDuration) continue;
 
                     Map<String, Integer> occupancyData = OccupancyPredictor.predict(train, time);
                     Integer occupancyAtStart = occupancyData.get(currentStation);
@@ -376,172 +327,240 @@ class TrainSchedulePredictorApp {
 
                     if (nextStation.equals(destStation)) {
                         results.add(newRoute);
-                        if (newDuration < bestDuration)
-                            bestDuration = newDuration;
+                        if (newDuration < bestDuration) bestDuration = newDuration;
                     } else {
-                        queue.add(new RouteNode(nextStation, arrTime.plusMinutes(1), newRoute, transitCount + 1));
+                        // Untuk transit, asumsikan waktu tunggu minimal
+                        queue.add(new RouteNode(nextStation, arrTime.plusMinutes(2), newRoute, transitCount + (routeSoFar.isEmpty() || !routeSoFar.get(routeSoFar.size() - 1).get("train_id").equals(train.getId()) ? 1 : 0)));
                     }
                 }
             }
         }
-        // Sort hasil seperti sebelumnya
-        results.sort(Comparator.comparingInt((List<Map<String, Object>> route) -> route.size())
-                .thenComparing((List<Map<String, Object>> route) -> {
-                    LocalDateTime dep = (LocalDateTime) route.get(0).get("_departure_dt");
-                    LocalDateTime arr = (LocalDateTime) route.get(route.size() - 1).get("_arrival_dt");
-                    return Duration.between(dep, arr).toMinutes();
-                }));
+        results.sort(Comparator.comparingLong((List<Map<String, Object>> route) ->
+                Duration.between((LocalDateTime) route.get(0).get("_departure_dt"), (LocalDateTime) route.get(route.size() - 1).get("_arrival_dt")).toMinutes()));
+        
         if (results.size() > maxResultCount) {
             return results.subList(0, maxResultCount);
         }
         return results;
     }
 
-    // Tambahkan class bantu untuk BFS
-    private static class RouteNode {
-        String station;
-        LocalDateTime time;
-        List<Map<String, Object>> route;
-        int transit;
-
-        RouteNode(String station, LocalDateTime time, List<Map<String, Object>> route, int transit) {
-            this.station = station;
-            this.time = time;
-            this.route = route;
-            this.transit = transit;
-        }
-    }
-
-    // Tambahkan metode ini:
     public List<String> getAvailableStations() {
         Set<String> stations = schedule.getAllStations();
         List<String> stationList = new ArrayList<>(stations);
         Collections.sort(stationList);
         return stationList;
     }
+}
 
-    public static void main(String[] args) {
-        try {
-            TrainSchedule schedule = new TrainSchedule("train_schedule_Jabodetabek.csv");
-            TrainSchedulePredictorApp app = new TrainSchedulePredictorApp(schedule);
-            LocalDateTime simulatedCurrentTime = LocalDateTime.of(2025, 6, 14, 12, 30);
-            Scanner scanner = new Scanner(System.in);
+/**
+ * KELAS BARU: TrainScheduleGUI
+ * Kelas ini mengelola semua komponen UI Swing
+ */
+class TrainScheduleGUI extends JFrame {
+    private final TrainSchedulePredictorApp app;
+    private final JComboBox<String> startStationBox;
+    private final JComboBox<String> destStationBox;
+    private final JTable resultTable;
+    private final DefaultTableModel tableModel;
 
-            List<String> availableStations = app.getAvailableStations();
+    public TrainScheduleGUI(TrainSchedulePredictorApp app) {
+        this.app = app;
+        setTitle("Pencarian Rute KRL Jabodetabek");
+        setSize(900, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
 
-            while (true) {
-                System.out.println("\n=== MENU UTAMA ===");
-                System.out.println("1. Cari rute KRL Jabodetabek");
-                System.out.println("2. Lihat Peta KRL Jabodetabek");
-                System.out.println("3. Keluar Program");
-                System.out.print("Pilih menu (1-3): ");
-                String menuInput = scanner.nextLine().trim();
+        // --- Panel Input ---
+        JPanel inputPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        List<String> stations = app.getAvailableStations();
+        startStationBox = new JComboBox<>(stations.toArray(new String[0]));
+        destStationBox = new JComboBox<>(stations.toArray(new String[0]));
+        JButton searchButton = new JButton("Cari Rute");
+        JButton mapButton = new JButton("Lihat Peta");
 
-                if (menuInput.equals("1")) {
-                    while (true) {
-                        System.out.println("\nDaftar Stasiun:");
-                        for (int i = 0; i < availableStations.size(); i++) {
-                            System.out.printf("%3d. %s%n", i + 1, availableStations.get(i));
-                        }
-                        System.out.printf("%3d. Kembali ke Menu Utama%n", availableStations.size() + 1);
-                        System.out.print("Pilih nomor stasiun AWAL (atau " + (availableStations.size() + 1)
-                                + " untuk kembali): ");
-                        int startStationNum;
-                        try {
-                            startStationNum = Integer.parseInt(scanner.nextLine().trim());
-                        } catch (NumberFormatException e) {
-                            System.out.println("Input tidak valid.");
-                            continue;
-                        }
-                        if (startStationNum == availableStations.size() + 1)
-                            break;
-                        if (startStationNum < 1 || startStationNum > availableStations.size()) {
-                            System.out.println("Nomor stasiun tidak valid.");
-                            continue;
-                        }
-                        String startStation = availableStations.get(startStationNum - 1);
+        inputPanel.add(new JLabel("Stasiun Awal:"));
+        inputPanel.add(startStationBox);
+        inputPanel.add(new JLabel("Stasiun Tujuan:"));
+        inputPanel.add(destStationBox);
+        inputPanel.add(searchButton);
+        inputPanel.add(mapButton);
 
-                        System.out.print("Pilih nomor stasiun TUJUAN (atau " + (availableStations.size() + 1)
-                                + " untuk kembali): ");
-                        int destStationNum;
-                        try {
-                            destStationNum = Integer.parseInt(scanner.nextLine().trim());
-                        } catch (NumberFormatException e) {
-                            System.out.println("Input tidak valid.");
-                            continue;
-                        }
-                        if (destStationNum == availableStations.size() + 1)
-                            break;
-                        if (destStationNum < 1 || destStationNum > availableStations.size()) {
-                            System.out.println("Nomor stasiun tidak valid.");
-                            continue;
-                        }
-                        String destStation = availableStations.get(destStationNum - 1);
+        // --- Tabel Hasil ---
+        String[] columnNames = {"Nama Kereta", "Berangkat", "Tiba", "Okupansi"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Membuat sel tidak dapat diedit
+            }
+        };
+        resultTable = new JTable(tableModel);
+        resultTable.setFillsViewportHeight(true);
+        resultTable.setRowHeight(25);
+        resultTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
+        
+        // ** SET RENDERER KUSTOM UNTUK PEWARNAAN **
+        resultTable.setDefaultRenderer(Object.class, new TrainRouteRenderer());
 
-                        if (startStation.equals(destStation)) {
-                            System.out.println("\nError: Stasiun awal dan tujuan tidak boleh sama.");
-                            continue;
-                        }
+        JScrollPane scrollPane = new JScrollPane(resultTable);
 
-                        System.out.println("\nMencari rute dari '" + startStation + "' ke '" + destStation + "'...");
-                        List<List<Map<String, Object>>> routes = app.predictRoutesWithTransit(startStation, destStation,
-                                simulatedCurrentTime, 3);
+        // --- Layout Utama ---
+        Container contentPane = getContentPane();
+        contentPane.setLayout(new BorderLayout(0, 10));
+        contentPane.add(inputPanel, BorderLayout.NORTH);
+        contentPane.add(scrollPane, BorderLayout.CENTER);
 
-                        if (routes.isEmpty()) {
-                            System.out.println("\nMaaf, tidak ditemukan rute kereta untuk pilihan Anda.");
-                        } else {
-                            System.out.println("\n--- Rute Kereta Tersedia ---");
-                            int routeNum = 1;
-                            for (List<Map<String, Object>> route : routes.subList(0, Math.min(3, routes.size()))) {
-                                System.out.println("Rute #" + routeNum++);
-                                System.out.printf("%-70s | %-12s | %-15s | %-12s%n", "Nama Kereta", "Berangkat", "Tiba",
-                                        "Okupansi");
-                                System.out.println("-".repeat(75));
-                                int i = 0;
-                                while (i < route.size()) {
-                                    Map<String, Object> leg = route.get(i);
-                                    String trainName = (String) leg.get("train_name");
-                                    String startStationfromTransit = (String) leg.get("start_station");
-                                    String departureTime = (String) leg.get("departure_time");
-                                    String occupancyInfo = leg.get("occupancy_percentage") != null
-                                            ? leg.get("occupancy_percentage") + "%"
-                                            : "N/A";
-                                    int j = i;
-                                    while (j + 1 < route.size()
-                                            && route.get(j + 1).get("train_name").equals(trainName)) {
-                                        j++;
-                                    }
-                                    String endStation = (String) route.get(j).get("destination_station");
-                                    String arrivalTime = (String) route.get(j).get("estimated_arrival");
+        // --- Action Listeners ---
+        searchButton.addActionListener(e -> findAndDisplayRoutes());
+        mapButton.addActionListener(e -> TrainSchedulePredictorApp.showMapImage("Rute-KRL-1.png"));
+    }
 
-                                    System.out.printf("%-70s | %-12s | %-15s | %-12s%n",
-                                            trainName + " (" + startStationfromTransit + " - " + endStation + ")",
-                                            departureTime,
-                                            arrivalTime,
-                                            occupancyInfo);
+    private void findAndDisplayRoutes() {
+        String startStation = (String) startStationBox.getSelectedItem();
+        String destStation = (String) destStationBox.getSelectedItem();
 
-                                    i = j + 1;
-                                }
-                                System.out.println("-".repeat(75));
-                            }
-                        }
-                        // Setelah selesai, kembali ke menu stasiun
+        if (startStation.equals(destStation)) {
+            JOptionPane.showMessageDialog(this, "Stasiun awal dan tujuan tidak boleh sama.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Hapus hasil sebelumnya
+        tableModel.setRowCount(0);
+
+        LocalDateTime currentTime = LocalDateTime.now(); // Gunakan waktu sekarang
+        List<List<Map<String, Object>>> routes = app.predictRoutesWithTransit(startStation, destStation, currentTime, 3);
+
+        if (routes.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Maaf, tidak ditemukan rute untuk pilihan Anda.", "Tidak Ada Rute", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            for (List<Map<String, Object>> route : routes) {
+                // Proses setiap segmen perjalanan (leg) dalam satu rute
+                int i = 0;
+                while (i < route.size()) {
+                    Map<String, Object> leg = route.get(i);
+                    String trainName = (String) leg.get("train_name");
+                    String startStationFromTransit = (String) leg.get("start_station");
+                    String departureTime = (String) leg.get("departure_time");
+                    String occupancyInfo = leg.get("occupancy_percentage") != null
+                            ? leg.get("occupancy_percentage") + "%"
+                            : "N/A";
+
+                    // Gabungkan segmen yang menggunakan kereta yang sama
+                    int j = i;
+                    while (j + 1 < route.size() && route.get(j + 1).get("train_name").equals(trainName)) {
+                        j++;
                     }
-                } else if (menuInput.equals("2")) {
-                    showMapImage("Rute-KRL-1.png");
-                    // Setelah lihat peta, kembali ke menu utama
-                } else if (menuInput.equals("3")) {
-                    System.out.println("Terima kasih telah menggunakan program ini.");
-                    break;
-                } else {
-                    System.out.println("Pilihan tidak valid.");
+                    String endStation = (String) route.get(j).get("destination_station");
+                    String arrivalTime = (String) route.get(j).get("estimated_arrival");
+
+                    String fullTrainName = trainName + " (" + startStationFromTransit + " - " + endStation + ")";
+
+                    tableModel.addRow(new Object[]{fullTrainName, departureTime, arrivalTime, occupancyInfo});
+                    
+                    // Jika ada transit, tambahkan baris penanda
+                    if (j + 1 < route.size()){
+                         tableModel.addRow(new Object[]{"--- TRANSIT ---", "", "", ""});
+                    }
+
+                    i = j + 1;
+                }
+                 // Tambahkan pemisah antar rute jika ada lebih dari satu rute ditemukan
+                if(routes.size() > 1 && routes.indexOf(route) < routes.size() -1){
+                    tableModel.addRow(new Object[]{"","","",""});
+                    tableModel.addRow(new Object[]{"=== RUTE ALTERNATIF ===", "", "", ""});
+                    tableModel.addRow(new Object[]{"","","",""});
                 }
             }
-            scanner.close();
-        } catch (IOException e) {
-            System.out.println("Failed to load train schedule: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("\nTerjadi kesalahan: " + e.getMessage());
         }
+    }
+}
+
+/**
+ * KELAS BARU: TrainRouteRenderer
+ * Renderer tabel kustom untuk mewarnai baris berdasarkan nama kereta.
+ */
+class TrainRouteRenderer extends DefaultTableCellRenderer {
+    // Definisikan warna di sini
+    private static final Color BOGOR_COLOR = Color.decode("#E30A16");
+    private static final Color CIKARANG_COLOR = Color.decode("#0084D8");
+    private static final Color TANJUNG_PRIOK_COLOR = Color.decode("#DD0067");
+    private static final Color RANGKASBITUNG_COLOR = Color.decode("#16812B");
+    private static final Color TANGERANG_COLOR = Color.decode("#623814");
+    private static final Color TRANSIT_COLOR = new Color(220, 220, 220); // Abu-abu muda untuk transit
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+        // Ambil nama kereta dari kolom pertama (indeks 0)
+        String trainName = (String) table.getValueAt(row, 0);
+
+        if (trainName == null) {
+            c.setBackground(table.getBackground());
+            c.setForeground(table.getForeground());
+            return c;
+        }
+        
+        // Tentukan warna berdasarkan nama kereta
+        Color rowColor = table.getBackground(); // Warna default
+        if (trainName.toLowerCase().contains("bogor")) {
+            rowColor = BOGOR_COLOR;
+        } else if (trainName.toLowerCase().contains("cikarang")) {
+            rowColor = CIKARANG_COLOR;
+        } else if (trainName.toLowerCase().contains("tanjung priok")) {
+            rowColor = TANJUNG_PRIOK_COLOR;
+        } else if (trainName.toLowerCase().contains("rangkasbitung")) {
+            rowColor = RANGKASBITUNG_COLOR;
+        } else if (trainName.toLowerCase().contains("tangerang")) {
+            rowColor = TANGERANG_COLOR;
+        } else if (trainName.contains("TRANSIT") || trainName.contains("ALTERNATIF")) {
+            rowColor = TRANSIT_COLOR;
+        }
+        
+        c.setBackground(rowColor);
+        
+        // Atur warna teks agar kontras dengan latar belakang
+        // Jika warna latar terlalu gelap, buat teks menjadi putih
+        if (rowColor.equals(BOGOR_COLOR) || rowColor.equals(RANGKASBITUNG_COLOR) || rowColor.equals(TANGERANG_COLOR)) {
+            c.setForeground(Color.WHITE);
+        } else {
+             c.setForeground(Color.BLACK);
+        }
+        
+        // Khusus untuk baris transit/alternatif
+        if (trainName.contains("TRANSIT") || trainName.contains("ALTERNATIF")){
+            c.setFont(new Font("SansSerif", Font.BOLD | Font.ITALIC, 12));
+            setHorizontalAlignment(SwingConstants.CENTER);
+        } else {
+            c.setFont(table.getFont());
+            setHorizontalAlignment(SwingConstants.LEFT);
+        }
+        
+        if (isSelected) {
+           c.setBackground(table.getSelectionBackground());
+           c.setForeground(table.getSelectionForeground());
+        }
+
+        return c;
+    }
+}
+
+
+public class Kode_JagoanIT {
+    public static void main(String[] args) {
+        // Jalankan aplikasi di Event Dispatch Thread (EDT) Swing
+        SwingUtilities.invokeLater(() -> {
+            try {
+                TrainSchedule schedule = new TrainSchedule("train_schedule_Jabodetabek.csv");
+                TrainSchedulePredictorApp app = new TrainSchedulePredictorApp(schedule);
+                TrainScheduleGUI gui = new TrainScheduleGUI(app);
+                gui.setVisible(true);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(null, "Gagal memuat jadwal kereta (train_schedule_Jabodetabek.csv): " + e.getMessage(), "Fatal Error", JOptionPane.ERROR_MESSAGE);
+                e.printStackTrace();
+            } catch (Exception e) {
+                 JOptionPane.showMessageDialog(null, "Terjadi kesalahan yang tidak terduga: " + e.getMessage(), "Fatal Error", JOptionPane.ERROR_MESSAGE);
+                e.printStackTrace();
+            }
+        });
     }
 }
