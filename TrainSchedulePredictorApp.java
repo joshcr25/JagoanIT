@@ -1,24 +1,24 @@
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.Queue;
-import java.util.LinkedList;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.awt.*;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import javax.swing.*;
 
 public class TrainSchedulePredictorApp {
     private final TrainSchedule schedule;
-    private final int maxResultCount = 3; // Tampilkan hingga 3 rute terbaik
+    private final int maxResultCount = 2; // Tampilkan hanya rute terbaik
 
     // --- PERUBAHAN 1: Mendefinisikan Stasiun Transit dan Aturan Lintas Jalur ---
     // Menggunakan enum Line dari kelas OccupancyPredictor
@@ -92,12 +92,12 @@ public class TrainSchedulePredictorApp {
     }
 
     // --- PERUBAHAN 2: Algoritma BFS yang sudah dioptimalkan ---
+
     public List<List<Map<String, Object>>> bfsFindRoutes(
             String startStation, String destStation, LocalDateTime currentTime, int maxTransit) {
 
         Queue<RouteNode> queue = new LinkedList<>();
         List<List<Map<String, Object>>> results = new ArrayList<>();
-        // Visited set sekarang lebih kompleks untuk menangani transit dengan benar
         Set<String> visited = new HashSet<>();
 
         queue.add(new RouteNode(startStation, currentTime, new ArrayList<>(), 0));
@@ -110,60 +110,65 @@ public class TrainSchedulePredictorApp {
             List<Map<String, Object>> routeSoFar = node.route;
             int transitCount = node.transit;
 
-            if (transitCount > maxTransit)
+            if (transitCount > maxTransit) {
                 continue;
+            }
 
-            // Kunci visit: stasiun|kereta_terakhir|jumlah_transit. Mencegah loop aneh di
-            // stasiun yang sama.
             String lastTrainId = routeSoFar.isEmpty() ? "START"
                     : (String) routeSoFar.get(routeSoFar.size() - 1).get("train_id");
             String visitKey = currentStation + "|" + lastTrainId + "|" + transitCount;
-            if (visited.contains(visitKey))
+            if (visited.contains(visitKey)) {
                 continue;
+            }
             visited.add(visitKey);
 
-            // --- INTI PERUBAHAN: TIDAK LAGI MELAKUKAN LOOP SEMUA KERETA ---
-            // Langsung ambil daftar kereta yang relevan dari map yang sudah dibuat.
             List<Train> relevantTrains = schedule.getTrainsForStation(currentStation);
 
             for (Train train : relevantTrains) {
                 List<String> route = train.getRoute();
                 Map<String, String> departureTimes = train.getDepartureTimes();
 
-                // --- Logika Cek Validitas Transit ---
+                int nextTransitCount = transitCount; // Inisialisasi jumlah transit untuk langkah ini
+
+                // --- LOGIKA TRANSIT YANG DIPERBAIKI ---
                 if (!routeSoFar.isEmpty()) {
                     String previousTrainId = (String) routeSoFar.get(routeSoFar.size() - 1).get("train_id");
                     if (!train.getId().equals(previousTrainId)) { // Ini adalah sebuah transit
+                        nextTransitCount = transitCount + 1; // Naikkan HANYA jika ID kereta berbeda
 
-                        // Normalisasi nama stasiun untuk lookup di map INTERCHANGE_STATIONS
+                        // Jika jumlah transit yang baru melebihi batas, lewati kereta ini
+                        if (nextTransitCount > maxTransit) {
+                            continue;
+                        }
+
                         String normalizedCurrentStation = currentStation.trim().toLowerCase().replaceAll("\\s+", " ");
 
                         // 1. Cek apakah stasiun ini adalah stasiun transit resmi
                         if (!INTERCHANGE_STATIONS.containsKey(normalizedCurrentStation)) {
-                            continue; // Jika bukan stasiun transit, lewati kereta ini (tidak boleh pindah di sini)
+                            continue; // Jika bukan stasiun transit, tidak boleh pindah di sini
                         }
 
                         // 2. Cek apakah perpindahan antar-jalur ini valid
                         OccupancyPredictor.Line currentTrainLine = OccupancyPredictor.getLine(train.getRoute());
-                        // Dapatkan jalur kereta sebelumnya (perlu cari ulang train objectnya)
                         Train previousTrain = schedule.getTrains().stream()
                                 .filter(t -> t.getId().equals(previousTrainId)).findFirst().orElse(null);
                         if (previousTrain == null)
-                            continue; // seharusnya tidak terjadi
+                            continue;
 
                         OccupancyPredictor.Line previousTrainLine = OccupancyPredictor
                                 .getLine(previousTrain.getRoute());
-
                         Set<OccupancyPredictor.Line> allowedLines = INTERCHANGE_STATIONS.get(normalizedCurrentStation);
                         if (!allowedLines.contains(currentTrainLine) || !allowedLines.contains(previousTrainLine)) {
-                            continue; // Perpindahan antar jalur ini tidak diizinkan di stasiun ini
+                            continue; // Perpindahan antar jalur tidak diizinkan di stasiun ini
                         }
                     }
                 }
+                // --- AKHIR PERBAIKAN LOGIKA TRANSIT ---
 
-                // Logika pencarian sisanya tetap sama
                 int startIdx = route.indexOf(currentStation);
-                if (startIdx == -1) continue; // Pastikan stasiun awal ada di rute kereta ini
+                if (startIdx == -1)
+                    continue;
+
                 for (int i = startIdx + 1; i < route.size(); i++) {
                     String nextStation = route.get(i);
                     String depTimeStr = departureTimes.get(currentStation);
@@ -206,10 +211,22 @@ public class TrainSchedulePredictorApp {
                         if (newDuration < bestDuration)
                             bestDuration = newDuration;
                     } else {
-                        queue.add(new RouteNode(nextStation, arrTime.plusMinutes(1), newRoute, transitCount + 1));
+                        // --- PERBAIKAN UTAMA: Gunakan nextTransitCount yang sudah dihitung dengan
+                        // benar ---
+                        queue.add(new RouteNode(nextStation, arrTime.plusMinutes(1), newRoute, nextTransitCount));
                     }
                 }
             }
+        }
+
+        // Logika sorting tidak perlu diubah
+        results.sort(Comparator.comparingInt((List<Map<String, Object>> r) -> {
+            long transitCount = r.stream().map(leg -> leg.get("train_id")).distinct().count() - 1;
+            return (int) transitCount;
+        }).thenComparing(r -> (LocalDateTime) r.get(r.size() - 1).get("_arrival_dt")));
+
+        if (results.size() > maxResultCount) {
+            return results.subList(0, maxResultCount);
         }
         return results;
     }
