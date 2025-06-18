@@ -1,30 +1,42 @@
+# data_models.py
 import datetime
 from dataclasses import dataclass, field
+from enum import Enum  # Import Enum
 from typing import List, Dict, Any
+
+# --- TAMBAHKAN ENUM INI ---
+class Region(Enum):
+    """Merepresentasikan wilayah operasional KRL."""
+    JABODETABEK = "Commuter Line Jabodetabek"
+    YOGYA_SOLO = "Commuter Line Yogyakarta-Solo"
 
 @dataclass
 class Train:
-    """Data class representing a single train."""
+    """Data class yang merepresentasikan satu kereta."""
     id: str = ""
     name: str = ""
     route: List[str] = field(default_factory=list)
     departure_times: Dict[str, str] = field(default_factory=dict)
+    # --- TAMBAHKAN FIELD INI ---
+    region: Region = Region.JABODETABEK  # Atribut baru untuk wilayah
 
 @dataclass
 class RouteNode:
-    """Data class for a node in the route-finding search."""
+    """Data class untuk sebuah node dalam pencarian rute."""
     station: str
     time: datetime.datetime
     route: List[Dict[str, Any]] = field(default_factory=list)
     transit: int = 0
 
-    # --- TAMBAHKAN METODE INI ---
     def __lt__(self, other):
         """
-        Compare two RouteNode objects. This is primarily used by the priority queue
-        to break ties when arrival times are identical.
-        We prioritize nodes with fewer transits.
+        Bandingkan dua objek RouteNode. Digunakan oleh priority queue
+        untuk memecah kebuntuan jika waktu kedatangan identik.
+        Kita prioritaskan node dengan transit lebih sedikit setelah waktu.
         """
         if not isinstance(other, RouteNode):
             return NotImplemented
+        # Memastikan perbandingan utama adalah waktu, lalu jumlah transit
+        if self.time != other.time:
+            return self.time < other.time
         return self.transit < other.transit

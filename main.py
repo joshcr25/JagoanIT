@@ -1,3 +1,5 @@
+# main.py
+
 import tkinter as tk
 from tkinter import messagebox
 import os
@@ -8,11 +10,11 @@ from app_gui import AppGUI
 
 def main():
     """
-    Main function to initialize and run the application.
+    Fungsi utama untuk menginisialisasi dan menjalankan aplikasi.
     """
-    # Ensure necessary files exist before starting
-    csv_file = "train_schedule_Jabodetabek.csv"
-    map_file = "Rute-KRL-1.png"
+    # Pastikan file yang diperlukan ada sebelum memulai
+    csv_file = "trainKRL_schedule.csv"
+    map_files = ["Rute-KRL-Jabodetabek.png", "Rute-KRL-Yogya-Solo.jpg"]
     
     if not os.path.exists(csv_file):
         messagebox.showerror(
@@ -20,20 +22,25 @@ def main():
             f"Gagal memuat jadwal kereta: File '{csv_file}' tidak ditemukan."
         )
         return
-    if not os.path.exists(map_file):
+        
+    # Peringatan jika salah satu atau kedua file peta tidak ada
+    missing_maps = [f for f in map_files if not os.path.exists(f)]
+    if missing_maps:
         messagebox.showwarning(
-             "File Hilang",
-            f"File peta '{map_file}' tidak ditemukan. Fitur peta tidak akan berfungsi."
+             "File Peta Hilang",
+            f"File peta berikut tidak ditemukan:\n" +
+            f"{', '.join(missing_maps)}\n" +
+            f"Fitur lihat peta mungkin tidak berfungsi untuk wilayah tertentu."
         )
 
     try:
-        # 1. Load the schedule data
+        # 1. Muat data jadwal
         schedule = TrainSchedule(csv_file)
         
-        # 2. Initialize the application logic
+        # 2. Inisialisasi logika aplikasi
         app_logic = RouteFinder(schedule)
         
-        # 3. Create and run the GUI
+        # 3. Buat dan jalankan GUI
         gui = AppGUI(app_logic)
         gui.mainloop()
 
@@ -42,7 +49,6 @@ def main():
             "Fatal Error",
             f"Terjadi kesalahan yang tidak terduga: {e}"
         )
-        # For debugging purposes
         import traceback
         traceback.print_exc()
 

@@ -4,10 +4,12 @@ import datetime
 from typing import List, Dict, Any
 
 from route_finder import RouteFinder
-import occupancy_predictor as predictor
+from data_models import Region  # Pastikan impor ini ada dari langkah sebelumnya
+
 
 class Tooltip:
     """Membuat tooltip untuk widget tertentu."""
+
     def __init__(self, widget, text):
         self.widget = widget
         self.text = text
@@ -34,195 +36,22 @@ class Tooltip:
             self.tooltip_window.destroy()
         self.tooltip_window = None
 
+
 class AppGUI(tk.Tk):
     """
     Antarmuka pengguna grafis utama untuk aplikasi Jadwal Kereta.
     """
+
     def __init__(self, app_logic: RouteFinder):
         super().__init__()
         self.app_logic = app_logic
+        self.title("Pencari Rute KRL")
+        self.geometry("850x650")
 
-        self.title("Pencarian Rute KRL Jabodetabek")
-        self.geometry("1000x600") # Sedikit diperlebar untuk widget baru
+        self.selected_region = tk.StringVar()
+        self.regions = {r.value: r for r in Region}
 
-        self._setup_styles()
-        self._create_widgets()
-
-    def _setup_styles(self):
-        """Mengonfigurasi gaya untuk pewarnaan baris Treeview."""
-        style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('SansSerif', 10))
-        style.configure("Treeview.Heading", font=('SansSerif', 12, 'bold'))
-
-        # Warna untuk berbagai jalur kereta
-        self.line_colors = {
-            "bogor": ("#E30A16", "white"),
-            "cikarang": ("#0084D8", "black"),
-            "tanjung priok": ("#DD0067", "black"),
-            "rangkasbitung": ("#16812B", "white"),
-            "tangerang": ("#623814", "white"),
-            "transit": ("#DCDCDC", "black"),
-            "alternatif": ("#DCDCDC", "black")
-        }
-        for line, (bg, fg) in self.line_colors.items():
-            style.configure(f"{line.capitalize()}.Treeview", background=bg, foreground=fg)
-
-    def _create_widgets(self):
-        """Membuat dan menata semua widget GUI."""
-        # --- Panel Input ---
-        input_panel = ttk.Frame(self, padding="10")
-        input_panel.pack(fill=tk.X)
-
-        stations = self.app_logic.get_available_stations()
-        
-        ttk.Label(input_panel, text="Stasiun Awal:").pack(side=tk.LEFT, padx=(0, 5))
-        self.start_station_box = ttk.Combobox(input_panel, values=stations, state="readonly", width=25)
-        self.start_station_box.pack(side=tk.LEFT, padx=5)
-
-        ttk.Label(input_panel, text="Stasiun Tujuan:").pack(side=tk.LEFT, padx=(10, 5))
-        self.dest_station_box = ttk.Combobox(input_panel, values=stations, state="readonly", width=25)
-        self.dest_station_box.pack(side=tk.LEFT, padx=5)
-
-        search_button = ttk.Button(input_panel, text="Cari Rute", command=self.find_and_display_routes)
-        search_button.pack(side=tk.LEFT, padx=10)
-        
-        map_button = ttk.Button(input_panel, text="Lihat Peta", command=lambda: RouteFinder.show_map_image("Rute-KRL-1.png"))
-        map_button.pack(side=tk.LEFT, padx=5)
-
-        # --- WIDGET BARU UNTUK WAKTU TRANSIT ---
-        ttk.Label(input_panel, text="Waktu Transit (menit):").pack(side=tk.LEFT, padx=(15, 5))
-        self.transit_time_spinbox = ttk.Spinbox(input_panel, from_=5, to=30, increment=1, width=5, justify=tk.CENTER)
-        self.transit_time_spinbox.set(20) # Nilai default 20 menit
-        self.transit_time_spinbox.pack(side=tk.LEFT)
-        Tooltip(self.transit_time_spinbox, "Atur waktu minimal untuk transit antar kereta (dalam menit).")
-        # ------------------------------------
-
-        # --- WIDGET BARU UNTUK WAKTU PERSIAPAN ---
-        ttk.Label(input_panel, text="Waktu Persiapan (menit):").pack(side=tk.LEFT, padx=(15, 5))
-        self.prep_time_spinbox = ttk.Spinbox(input_panel, from_=2, to=20, increment=1, width=5, justify=tk.CENTER)
-        self.prep_time_spinbox.set(15) # Nilai default 15 menit
-        self.prep_time_spinbox.pack(side=tk.LEFT)
-        Tooltip(self.prep_time_spinbox, "Atur waktu persiapan sebelum keberangkatan (dalam menit).")
-        # -----------------------------------------
-
-        # --- Tabel Hasil ---
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        columns = ("train_name", "departs", "arrives", "occupancy")
-        self.result_table = ttk.Treeview(table_frame, columns=columns, show="headings")
-
-        self.result_table.heading("train_name", text="Nama Kereta")
-        self.result_table.heading("departs", text="Berangkat")
-        self.result_table.heading("arrives", text="Tiba")
-        self.result_table.heading("occupancy", text="Okupansi")
-
-        self.result_table.column("train_name", width=400)
-        self.result_table.column("departs", width=100, anchor=tk.CENTER)
-        self.result_table.column("arrives", width=100, anchor=tk.CENTER)
-        self.result_table.column("occupancy", width=100, anchor=tk.CENTER)
-
-        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.result_table.yview)
-        self.result_table.configure(yscrollcommand=scrollbar.set)
-        
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.result_table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        for line_name in self.line_colors:
-            self.result_table.tag_configure(line_name, font=('SansSerif', 10))
-            if line_name in ["transit", "alternatif"]:
-                self.result_table.tag_configure(line_name, font=('SansSerif', 10, 'italic'), foreground='black', background='#DCDCDC')
-
-
-    def find_and_display_routes(self):
-        """Mengambil rute dari logika aplikasi dan menampilkannya di tabel."""
-        start_station = self.start_station_box.get()
-        dest_station = self.dest_station_box.get()
-
-        if not start_station or not dest_station:
-            messagebox.showerror("Input Error", "Stasiun awal dan tujuan harus dipilih.")
-            return
-
-        if start_station == dest_station:
-            messagebox.showerror("Input Error", "Stasiun awal dan tujuan tidak boleh sama.")
-            return
-
-        # --- AMBIL NILAI WAKTU TRANSIT DARI SPINBOX ---
-        try:
-            transit_duration = int(self.transit_time_spinbox.get())
-        except ValueError:
-            messagebox.showerror("Input Error", "Waktu transit harus berupa angka.")
-            return
-        # -----------------------------------------
-
-        # --- AMBIL NILAI WAKTU PERSIAPAN DARI SPINBOX ---
-        try:
-            prep_time_minutes = int(self.prep_time_spinbox.get())
-        except ValueError:
-            messagebox.showerror("Input Error", "Waktu persiapan harus berupa angka.")
-            return
-        # -----------------------------------------
-
-        for item in self.result_table.get_children():
-            self.result_table.delete(item)
-            
-        search_start_time = datetime.datetime.now() + datetime.timedelta(minutes=prep_time_minutes)
-        
-        # --- PASSING PARAMETER BARU KE FUNGSI PENCARIAN ---
-        routes = self.app_logic.astar_find_routes(start_station, dest_station, search_start_time, 3, transit_duration)
-        # ----------------------------------------------------
-
-        if not routes:
-            messagebox.showinfo("Tidak Ada Rute", "Maaf, tidak ditemukan rute untuk pilihan Anda.")
-        else:
-            for i, route in enumerate(routes):
-                leg_idx = 0
-                while leg_idx < len(route):
-                    leg = route[leg_idx]
-                    train_name = leg['train_name']
-                    
-                    j = leg_idx
-                    while j + 1 < len(route) and route[j+1]['train_name'] == train_name:
-                        j += 1
-                    
-                    start_st_from_transit = leg['start_station']
-                    end_st = route[j]['destination_station']
-                    
-                    full_train_name = f"{train_name} ({start_st_from_transit} - {end_st})"
-                    departure_time = leg['departure_time']
-                    arrival_time = route[j]['estimated_arrival']
-                    occupancy = f"{leg['occupancy_percentage']}%" if leg['occupancy_percentage'] is not None else "N/A"
-                    
-                    tag = "default"
-                    for line_name in self.line_colors:
-                        if line_name in train_name.lower():
-                            tag = line_name
-                            break
-                    
-                    self.result_table.insert("", tk.END, values=(full_train_name, departure_time, arrival_time, occupancy), tags=(tag,))
-
-                    if j + 1 < len(route):
-                        # Menampilkan waktu tunggu transit
-                        arrival_leg_1 = route[j]['_arrival_dt']
-                        departure_leg_2 = route[j+1]['_departure_dt']
-                        wait_minutes = round((departure_leg_2 - arrival_leg_1).total_seconds() / 60)
-                        transit_text = f"--- TRANSIT (Tunggu {wait_minutes} menit di {leg['destination_station']}) ---"
-                        self.result_table.insert("", tk.END, values=(transit_text, "", "", ""), tags=("transit",))
-
-
-                    leg_idx = j + 1
-                
-                if i < len(routes) - 1:
-                    self.result_table.insert("", tk.END, values=("", "", "", ""))
-                    self.result_table.insert("", tk.END, values=("=== RUTE ALTERNATIF ===", "", "", ""), tags=("alternatif",))
-                    self.result_table.insert("", tk.END, values=("", "", "", ""))
-
-    def get_station_data(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Mengembalikan data stasiun KRL Commuter Line, termasuk alamat dan ketinggian.
-        Sumber data: Wikipedia
-        """
-        return {
+        self.station_info = {
             "Jakarta Kota": {"address": "Jl. Stasiun Kota No. 1, Pinangsia, Taman Sari, Jakarta Barat, 11110", "elevation": "+4 m"},
             "Jayakarta": {"address": "Jl. Pangeran Jayakarta, Mangga Dua Selatan, Sawah Besar, Jakarta Pusat, 10730", "elevation": "+5 m"},
             "Mangga Besar": {"address": "Jl. Karang Anyar, Karang Anyar, Sawah Besar, Jakarta Pusat, 10740", "elevation": "+13 m"},
@@ -304,4 +133,257 @@ class AppGUI(tk.Tk):
             "Rajawali": {"address": "Jl. Industri 1, Gn. Sahari Utara, Sawah Besar, Jakarta Pusat, 10720", "elevation": "+5 m"},
             "Ancol": {"address": "Jl. R. E. Martadinata, Ancol, Pademangan, Jakarta Utara, 14430", "elevation": "+3 m"},
             "Tanjung Priok": {"address": "Jl. Stasiun Tanjung Priok, Tanjung Priok, Jakarta Utara, 14310", "elevation": "+4 m"},
+
         }
+
+        self._setup_widgets()
+        self.region_cb.set(Region.JABODETABEK.value)
+        self._on_region_selected()
+
+    def _setup_widgets(self):
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        top_frame = ttk.Frame(main_frame)
+        top_frame.pack(fill=tk.X, pady=(0, 10))
+        top_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(top_frame, text="Wilayah Operasi:").grid(
+            row=0, column=0, padx=(5, 2), pady=5, sticky="w")
+        self.region_cb = ttk.Combobox(
+            top_frame,
+            textvariable=self.selected_region,
+            values=list(self.regions.keys()),
+            state="readonly",
+            width=30
+        )
+        self.region_cb.grid(row=0, column=1, padx=(0, 5), pady=5, sticky="ew")
+        self.region_cb.bind("<<ComboboxSelected>>", self._on_region_selected)
+
+        # --- TOMBOL BARU UNTUK MELIHAT PETA ---
+        map_button = ttk.Button(
+            top_frame, text="Lihat Peta Rute", command=self._show_map_clicked)
+        map_button.grid(row=0, column=2, padx=(10, 5), pady=5, sticky="e")
+        # ------------------------------------
+
+        # Tombol Cari
+        search_button = ttk.Button(main_frame, text="Cari Rute Terbaik",
+                                   command=self._find_route_clicked, style="Accent.TButton")
+        ttk.Style().configure("Accent.TButton", font=("Helvetica", 10, "bold"))
+        search_button.pack(pady=10, fill=tk.X, padx=5)
+
+        # --- FRAME INPUT PENCARIAN ---
+        input_frame = ttk.LabelFrame(main_frame, text="Pencarian Rute")
+        input_frame.pack(fill=tk.X, padx=5, pady=5)
+        input_frame.columnconfigure(1, weight=1)
+
+        # Stasiun Awal
+        ttk.Label(input_frame, text="Dari Stasiun:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.from_station_cb = ttk.Combobox(input_frame, state="readonly")
+        self.from_station_cb.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        # Stasiun Tujuan
+        ttk.Label(input_frame, text="Ke Stasiun:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.to_station_cb = ttk.Combobox(input_frame, state="readonly")
+        self.to_station_cb.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+        # --- WIDGET TANGGAL DAN WAKTU ---
+        ttk.Label(input_frame, text="Tanggal Berangkat:").grid(
+            row=2, column=0, padx=5, pady=5, sticky="w")
+        self.date_entry = ttk.Entry(input_frame)
+        self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+
+        ttk.Label(input_frame, text="Jam Berangkat:").grid(
+            row=3, column=0, padx=5, pady=5, sticky="w")
+        self.time_entry = ttk.Entry(input_frame)
+        self.time_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+
+        # Frame Hasil
+        result_frame = ttk.LabelFrame(main_frame, text="Hasil Rute")
+        result_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.result_text = tk.Text(
+            result_frame, wrap=tk.WORD, height=15, state=tk.DISABLED, font=("Courier New", 10))
+        self.result_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    # --- FUNGSI BARU UNTUK MENANGANI KLIK TOMBOL PETA ---
+    def _show_map_clicked(self):
+        """Menangani klik pada tombol lihat peta."""
+        # Nama file peta sudah ditentukan dalam proyek
+        map_file = "Rute-KRL-1.png"
+        self.app_logic.show_map_image(map_file)
+    # ----------------------------------------------------
+
+    def _on_region_selected(self, event=None):
+        """Memperbarui dropdown stasiun saat wilayah baru dipilih."""
+        region_enum = self.regions[self.selected_region.get()]
+        stations = self.app_logic.schedule.get_available_stations_by_region(region_enum)
+        self.from_station_cb['values'] = stations
+        self.to_station_cb['values'] = stations
+        self.from_station_cb.set('')
+        self.to_station_cb.set('')
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, "Silakan pilih stasiun keberangkatan dan tujuan.")
+        self.result_text.config(state=tk.DISABLED)
+
+    def _find_route_clicked(self):
+        from_station = self.from_station_cb.get()
+        to_station = self.to_station_cb.get()
+        date_str = self.date_entry.get()
+        time_str = self.time_entry.get()
+
+        if not from_station or not to_station or not date_str or not time_str:
+            messagebox.showwarning(
+                "Input Tidak Lengkap", "Harap isi semua kolom: stasiun, tanggal, dan waktu.")
+            return
+
+        try:
+            departure_datetime = datetime.datetime.strptime(
+                f"{date_str} {time_str}", "%Y-%m-%d %H:%M"
+            )
+            region_enum = self.regions[self.selected_region.get()]
+            routes = self.app_logic.find_routes(
+                from_station, to_station, departure_datetime, region_enum
+            )
+            self._display_results(routes)
+
+        except ValueError:
+            messagebox.showerror(
+                "Format Salah", "Format tanggal (YYYY-MM-DD) atau waktu (HH:MM) tidak valid.")
+        except Exception as e:
+            messagebox.showerror("Error Tak Terduga",
+                                 f"Terjadi kesalahan: {e}")
+
+    def _display_results(self, routes: List[List[Dict[str, Any]]]):
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+
+        if not routes:
+            self.result_text.insert(tk.END, "Tidak ada rute langsung yang ditemukan untuk waktu yang dipilih.\nCoba cari pada waktu yang berbeda.")
+        else:
+            header = f"Menampilkan {len(routes)} rute terbaik dari {routes[0][0]['start_station']} ke {routes[0][-1]['destination_station']}:\n"
+            self.result_text.insert(tk.END, header)
+
+            for i, route in enumerate(routes):
+                line = f"\n--- Rute Alternatif #{i+1} ---\n"
+                dep_time = route[0]['departure_time']
+                arr_time = route[-1]['estimated_arrival']
+
+                total_duration = route[-1]['_arrival_dt'] - route[0]['_departure_dt']
+                hours, remainder = divmod(total_duration.seconds, 3600)
+                minutes, _ = divmod(remainder, 60)
+
+                line += f"Perkiraan: Berangkat {dep_time}, Tiba {arr_time} (Durasi: {hours} jam {minutes} menit)\n"
+
+                transits = len(set(leg['train_id'] for leg in route)) - 1
+                line += f"Jumlah Transit: {transits}\n\n"
+                self.result_text.insert(tk.END, line)
+
+                for leg in route:
+                    details = f"  • Naik KA {leg['train_name']} ({leg['train_id']})\n"
+                    details += f"    - Dari: {leg['start_station']} ({leg['departure_time']})\n"
+                    details += f"    - Ke: {leg['destination_station']} ({leg['estimated_arrival']})\n"
+                    occupancy = leg.get('occupancy_percentage', -1)
+                    occupancy_str = f"{occupancy}%" if occupancy != -1 else "N/A"
+                    details += f"    - Perkiraan Okupansi: {occupancy_str}\n"
+                    self.result_text.insert(tk.END, details)
+
+        self.result_text.config(state=tk.DISABLED)
+        input_frame.pack(fill=tk.X, padx=5, pady=5)
+        input_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(input_frame, text="Dari Stasiun:").grid(
+            row=0, column=0, padx=5, pady=5, sticky="w")
+        self.from_station_cb = ttk.Combobox(input_frame, state="readonly")
+        self.from_station_cb.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        ttk.Label(input_frame, text="Ke Stasiun:").grid(
+            row=1, column=0, padx=5, pady=5, sticky="w")
+        self.to_station_cb = ttk.Combobox(input_frame, state="readonly")
+        self.to_station_cb.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+        # --- WIDGET TANGGAL DAN WAKTU ---
+        ttk.Label(input_frame, text="Tanggal Berangkat:").grid(
+            row=2, column=0, padx=5, pady=5, sticky="w")
+        self.date_entry = ttk.Entry(input_frame)
+        self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+
+        ttk.Label(input_frame, text="Jam Berangkat:").grid(
+            row=3, column=0, padx=5, pady=5, sticky="w")
+        self.time_entry = ttk.Entry(input_frame)
+        self.time_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+
+       
+
+    # --- TAMBAHKAN HANDLER INI ---
+    def _on_region_selected(self, event=None):
+        """Memperbarui dropdown stasiun saat wilayah baru dipilih."""
+        region_enum = self.regions[self.selected_region.get()]
+
+        # Ambil daftar stasiun dari objek schedule di dalam app_logic
+        stations = self.app_logic.schedule.get_available_stations_by_region(
+            region_enum)
+
+        self.from_station_cb['values'] = stations
+        self.to_station_cb['values'] = stations
+
+        # Kosongkan pilihan sebelumnya
+        self.from_station_cb.set('')
+        self.to_station_cb.set('')
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(
+            tk.END, "Silakan pilih stasiun keberangkatan dan tujuan.")
+        self.result_text.config(state=tk.DISABLED)
+
+    def _find_route_clicked(self):
+        from_station = self.from_station_cb.get()
+        to_station = self.to_station_cb.get()
+
+        if not from_station or not to_station:
+            messagebox.showwarning(
+                "Input Tidak Lengkap", "Harap pilih stasiun keberangkatan dan tujuan.")
+            return
+
+        try:
+            # --- AMBIL DAN PARSE INPUT TANGGAL & JAM ---
+            date_str = self.date_entry.get()
+            time_str = self.time_entry.get()
+            departure_datetime = datetime.datetime.strptime(
+                f"{date_str} {time_str}", "%Y-%m-%d %H:%M"
+            )
+
+            # --- DAPATKAN WILAYAH YANG DIPILIH DARI ENUM ---
+            region_enum = self.regions[self.selected_region.get()]
+
+            # --- PANGGIL find_routes DENGAN PARAMETER WILAYAH ---
+            routes = self.app_logic.find_routes(
+                from_station, to_station, departure_datetime, region_enum
+            )
+            self._display_results(routes)
+
+        except ValueError:
+            messagebox.showerror(
+                "Error", "Format waktu tidak valid. Gunakan format HH:MM.")
+        except Exception as e:
+            messagebox.showerror("Error Tak Terduga",
+                                 f"Terjadi kesalahan: {e}")
+
+    def _display_results(self, routes: List[List[Dict[str, Any]]]):
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete(1.0, tk.END)
+
+        if not routes:
+            self.result_text.insert(tk.END, "Tidak ada rute yang ditemukan.")
+        else:
+            for i, route in enumerate(routes):
+                # ... (Logika untuk menampilkan rute)
+                for leg in route:
+                    occupancy = leg.get('occupancy_percentage', -1)
+                    # --- TAMPILKAN N/A JIKA OKUPANSI TIDAK TERSEDIA ---
+                    occupancy_str = f"{occupancy}%" if occupancy != - \
+                        1 else "N/A"
+                    details += f"    - Perkiraan Okupansi: {occupancy_str}\n"
+                self.result_text.insert(tk.END, details)
+
+        self.result_text.config(state=tk.DISABLED)
