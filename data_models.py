@@ -17,3 +17,14 @@ class RouteNode:
     time: datetime.datetime
     route: List[Dict[str, Any]] = field(default_factory=list)
     transit: int = 0
+
+    # --- TAMBAHKAN METODE INI ---
+    def __lt__(self, other):
+        """
+        Compare two RouteNode objects. This is primarily used by the priority queue
+        to break ties when arrival times are identical.
+        We prioritize nodes with fewer transits.
+        """
+        if not isinstance(other, RouteNode):
+            return NotImplemented
+        return self.transit < other.transit

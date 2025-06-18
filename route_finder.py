@@ -1,5 +1,6 @@
 import collections
 import datetime
+import heapq
 import tkinter as tk
 from tkinter import messagebox
 from typing import List, Dict, Set, Any
@@ -11,7 +12,7 @@ import occupancy_predictor as predictor
 
 class RouteFinder:
     """
-    Handles the core logic of finding train routes using a BFS algorithm.
+    Handles the core logic of finding train routes using an A* algorithm.
     """
     INTERCHANGE_STATIONS: Dict[str, Set[predictor.Line]] = {
         "manggarai": {predictor.Line.BOGOR, predictor.Line.CIKARANG},
@@ -35,40 +36,33 @@ class RouteFinder:
         try:
             map_window = tk.Toplevel()
             map_window.title("Peta Rute KRL")
-            
-            # Use Pillow to open and resize the image
             img = Image.open(image_path)
-            img = img.resize((800, 600), Image.LANCZOS)
-            
+            img = img.resize((800, 600), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
-            
             label = tk.Label(map_window, image=photo)
-            label.image = photo  # Keep a reference!
+            label.image = photo
             label.pack()
-
         except Exception as e:
             messagebox.showerror("Error", f"Gagal memuat gambar peta: {image_path}\nError: {e}")
 
-    def bfs_find_routes(self, start_station: str, dest_station: str, current_time: datetime.datetime, max_transit: int) -> List[List[Dict[str, Any]]]:
+    # --- SIGNATURE FUNGSI DIPERBARUI ---
+    def astar_find_routes(self, start_station: str, dest_station: str, current_time: datetime.datetime, max_transit: int, transit_duration_minutes: int) -> List[List[Dict[str, Any]]]:
         """
-        Finds the best routes between two stations using an optimized BFS algorithm.
+        Finds the best routes between two stations using an A* algorithm based on arrival time.
         """
-        queue = collections.deque([RouteNode(start_station, current_time, [], 0)])
+        queue = [(current_time, RouteNode(start_station, current_time, [], 0))]
         results = []
-        visited = set()
-        best_duration = float('inf')
+        visited = {}
 
         while queue:
-            node = queue.popleft()
+            current_arrival_time, node = heapq.heappop(queue)
+
+            visit_key = (node.station, node.transit)
+            if current_arrival_time > visited.get(visit_key, datetime.datetime.max):
+                continue
             
             if node.transit > max_transit:
                 continue
-
-            last_train_id = node.route[-1]['train_id'] if node.route else "START"
-            visit_key = (node.station, last_train_id, node.transit)
-            if visit_key in visited:
-                continue
-            visited.add(visit_key)
 
             relevant_trains = self.schedule.get_trains_for_station(node.station)
 
@@ -77,30 +71,15 @@ class RouteFinder:
                 departure_times = train.departure_times
                 
                 next_transit_count = node.transit
-                # --- TRANSIT LOGIC ---
                 if node.route:
                     previous_train_id = node.route[-1]['train_id']
-                    if train.id != previous_train_id: # This is a transit
+                    if train.id != previous_train_id:
                         next_transit_count = node.transit + 1
                         if next_transit_count > max_transit:
                             continue
-                        
                         norm_station = node.station.strip().lower().replace("  ", " ")
                         if norm_station not in self.INTERCHANGE_STATIONS:
                             continue
-                        
-                        # Check for valid line transfer
-                        current_train_line = predictor.get_line(train.route)
-                        # This lookup is simplified; a real app might need to fetch the full Train object
-                        prev_trains = [t for t in self.schedule.get_trains() if t.id == previous_train_id]
-                        if not prev_trains: continue
-                        
-                        previous_train_line = predictor.get_line(prev_trains[0].route)
-                        allowed_lines = self.INTERCHANGE_STATIONS[norm_station]
-                        
-                        if current_train_line not in allowed_lines or previous_train_line not in allowed_lines:
-                            continue
-                # --- END TRANSIT LOGIC ---
                 
                 try:
                     start_idx = route.index(node.station)
@@ -115,17 +94,24 @@ class RouteFinder:
                     if not dep_time_str or not arr_time_str:
                         continue
                     
-                    dep_time = datetime.datetime.combine(node.time.date(), datetime.datetime.strptime(dep_time_str, "%H:%M").time())
-                    arr_time = datetime.datetime.combine(node.time.date(), datetime.datetime.strptime(arr_time_str, "%H:%M").time())
-
-                    if dep_time < node.time:
-                        continue
+                    current_node_time = node.time
+                    dep_time = datetime.datetime.combine(
+                        current_node_time.date(),
+                        datetime.datetime.strptime(dep_time_str, "%H:%M").time()
+                    )
+                    if dep_time < current_node_time:
+                        dep_time += datetime.timedelta(days=1)
+                    arr_time = dep_time.replace(
+                        hour=int(arr_time_str.split(':')[0]),
+                        minute=int(arr_time_str.split(':')[1]),
+                        second=0, microsecond=0
+                    )
+                    if arr_time < dep_time:
+                        arr_time += datetime.timedelta(days=1)
                     
-                    first_leg_dep_time = node.route[0]['_departure_dt'] if node.route else dep_time
-                    new_duration = (arr_time - first_leg_dep_time).total_seconds()
-
-                    if new_duration > best_duration:
-                        continue
+                    visit_key_next = (next_station, next_transit_count)
+                    if arr_time >= visited.get(visit_key_next, datetime.datetime.max):
+                         continue
 
                     occupancy_data = predictor.predict(train, dep_time)
                     occupancy_at_start = occupancy_data.get(node.station)
@@ -143,15 +129,18 @@ class RouteFinder:
                     }
                     
                     new_route_so_far = node.route + [leg]
+                    visited[visit_key_next] = arr_time
 
                     if next_station == dest_station:
                         results.append(new_route_so_far)
-                        if new_duration < best_duration:
-                            best_duration = new_duration
+                        if len(results) >= self.max_result_count:
+                           pass 
                     else:
-                        queue.append(RouteNode(next_station, arr_time + datetime.timedelta(minutes=1), new_route_so_far, next_transit_count))
+                        # --- GUNAKAN PARAMETER WAKTU TRANSIT ---
+                        next_node_time = arr_time + datetime.timedelta(minutes=transit_duration_minutes)
+                        # ------------------------------------
+                        new_node = RouteNode(next_station, next_node_time, new_route_so_far, next_transit_count)
+                        heapq.heappush(queue, (arr_time, new_node))
 
-        # Sort results by transit count, then by arrival time
         results.sort(key=lambda r: (len(set(leg['train_id'] for leg in r)) - 1, r[-1]['_arrival_dt']))
-
         return results[:self.max_result_count]
