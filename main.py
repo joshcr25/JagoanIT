@@ -14,7 +14,7 @@ def main():
     """
     # Pastikan file yang diperlukan ada sebelum memulai
     csv_file = "trainKRL_schedule.csv"
-    map_files = ["Rute-KRL-Jabodetabek.png", "Rute-KRL-Yogya-Solo.jpg"]
+    map_files = ["Rute-KRL-Jabodetabek.png", "Rute-KRL-YogyakartaSoloKutoarjo.png"]
     
     if not os.path.exists(csv_file):
         messagebox.showerror(
