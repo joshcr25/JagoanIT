@@ -76,22 +76,24 @@ class RouteFinder:
                     next_station = train.route[i]
                     
                     dep_time_str = train.departure_times.get(node.station)
-                    if not dep_time_str: continue
+                    arr_time_str = train.departure_times.get(next_station)
+                    if not dep_time_str or not arr_time_str:
+                        continue
 
                     dep_h, dep_m = map(int, dep_time_str.split(':'))
-                    # Gunakan waktu node (yang sudah termasuk waktu tunggu/transit) sebagai basis
-                    dep_time = node.time.replace(hour=dep_h, minute=dep_m, second=0, microsecond=0)
+                    arr_h, arr_m = map(int, arr_time_str.split(':'))
 
-                    # Jika waktu keberangkatan berikutnya lebih awal dari waktu saat ini di stasiun,
-                    # asumsikan itu untuk hari berikutnya.
+                    # Waktu keberangkatan dari stasiun asal
+                    dep_time = node.time.replace(hour=dep_h, minute=dep_m, second=0, microsecond=0)
+                    # Jika waktu keberangkatan lebih awal dari waktu node, asumsikan hari berikutnya
                     if dep_time < node.time:
                         dep_time += datetime.timedelta(days=1)
-                    
-                    # Estimasi waktu perjalanan (bisa diperbaiki jika ada data waktu tiba)
-                    # Mari asumsikan waktu perjalanan antar stasiun sekitar 3-5 menit
-                    # Di sini kita pakai estimasi kasar, bisa diperbaiki jika data lebih lengkap
-                    time_to_next = (i - current_idx) * 4 
-                    arr_time = dep_time + datetime.timedelta(minutes=time_to_next)
+
+                    # Waktu tiba di stasiun tujuan
+                    arr_time = dep_time.replace(hour=arr_h, minute=arr_m)
+                    # Jika waktu tiba lebih awal dari waktu keberangkatan (melewati tengah malam)
+                    if arr_time < dep_time:
+                        arr_time += datetime.timedelta(days=1)
 
                     is_different_train = not node.route or train.id != node.route[-1]['train_id']
                     
@@ -131,4 +133,18 @@ class RouteFinder:
                 if len(results) >= self.max_result_count: break
 
         results.sort(key=lambda r: (r[-1]['_arrival_dt'], len(r))) # Urutkan berdasarkan waktu tiba dan jumlah leg
+
+        # --- FILTER: Batasi selisih durasi dengan rute tercepat ---
+        if results:
+            min_duration = (results[0][-1]['_arrival_dt'] - results[0][0]['_departure_dt']).total_seconds()
+            max_tolerated = min_duration + 30 * 60  # 120 menit toleransi
+            filtered = []
+            for r in results:
+                dur = (r[-1]['_arrival_dt'] - r[0]['_departure_dt']).total_seconds()
+                if dur <= max_tolerated:
+                    filtered.append(r)
+                if len(filtered) >= self.max_result_count:
+                    break
+            results = filtered
+
         return results[:self.max_result_count]

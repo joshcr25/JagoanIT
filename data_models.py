@@ -9,6 +9,7 @@ class Region(Enum):
     """Merepresentasikan wilayah operasional KRL."""
     JABODETABEK = "Commuter Line Jabodetabek"
     YOGYA_SOLO = "Commuter Line Yogyakarta-Solo"
+    RANGKASBITUNG_MERAK = "Commuter Line Rangkasbitung-Merak"
 
 @dataclass
 class Train:

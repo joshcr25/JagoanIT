@@ -28,7 +28,8 @@ class Tooltip:
 
         label = tk.Label(self.tooltip_window, text=self.text, justify='left',
                          background="#ffffe0", relief='solid', borderwidth=1,
-                         font=("tahoma", "8", "normal"))
+                         font=("Arial", 10, "normal"),
+                         fg="#000") # Set text color for tooltip
         label.pack(ipadx=1)
 
     def hide_tooltip(self, event):
@@ -47,6 +48,19 @@ class AppGUI(tk.Tk):
         self.app_logic = app_logic
         self.title("Pencari Rute KRL")
         self.geometry("850x650")
+        
+        # Configure styles for ttk widgets
+        style = ttk.Style(self)
+        self.option_add("*TCombobox*Listbox.foreground", "#000") # For combobox dropdown items
+
+        # Set foreground color for various ttk widgets
+        style.configure("TLabel", font=("Arial", 10), foreground="#000")
+        style.configure("TButton", font=("Arial", 10), foreground="#000")
+        style.configure("Accent.TButton", font=("Arial", 10, "bold"), foreground="#000")
+        style.configure("TCombobox", font=("Arial", 10), foreground="#000") # For the entry part of the combobox
+        style.configure("TEntry",font=("Arial", 10), foreground="#000")
+        style.configure("TLabelframe.Label",font=("Arial", 10), foreground="#000") # For the title text of LabelFrames
+
 
         self.selected_region = tk.StringVar()
         self.regions = {r.value: r for r in Region}
@@ -169,7 +183,6 @@ class AppGUI(tk.Tk):
         # Tombol Cari
         search_button = ttk.Button(main_frame, text="Cari Rute Terbaik",
                                    command=self._find_route_clicked, style="Accent.TButton")
-        ttk.Style().configure("Accent.TButton", font=("Helvetica", 10, "bold"))
         search_button.pack(pady=10, fill=tk.X, padx=5)
 
         # --- FRAME INPUT PENCARIAN ---
@@ -202,7 +215,7 @@ class AppGUI(tk.Tk):
         result_frame = ttk.LabelFrame(main_frame, text="Hasil Rute")
         result_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.result_text = tk.Text(
-            result_frame, wrap=tk.WORD, height=15, state=tk.DISABLED, font=("Courier New", 10))
+            result_frame, wrap=tk.WORD, height=15, state=tk.DISABLED, font=("Arial", 10), fg="#000")
         self.result_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
     # --- FUNGSI BARU UNTUK MENANGANI KLIK TOMBOL PETA ---
@@ -276,8 +289,36 @@ class AppGUI(tk.Tk):
                 line += f"Perkiraan: Berangkat {dep_time}, Tiba {arr_time} (Durasi: {hours} jam {minutes} menit)\n"
 
                 transits = len(set(leg['train_id'] for leg in route)) - 1
-                line += f"Jumlah Transit: {transits}\n\n"
-                self.result_text.insert(tk.END, line)
+                line += f"Jumlah Transit: {transits}\n"
+
+                # --- Hitung tarif hanya sekali untuk seluruh rute ---
+                fare = None
+                if hasattr(self.app_logic, "schedule") and hasattr(self.app_logic.schedule, "get_fare_for_train"):
+                    # Coba dapatkan train_obj dari leg pertama
+                    train_obj = getattr(route[0], "train_obj", None)
+                    if train_obj is None and hasattr(self.app_logic.schedule, "station_to_trains_map"):
+                        trains = self.app_logic.schedule.station_to_trains_map.get(route[0]['start_station'], [])
+                        for t in trains:
+                            if t.id == route[0]['train_id']:
+                                train_obj = t
+                                break
+                    if train_obj:
+                        fare = self.app_logic.schedule.get_fare_for_train(train_obj, 
+                            from_station=route[0]['start_station'], 
+                            to_station=route[-1]['destination_station'])
+                    else:
+                        # fallback: hitung manual jika info train_obj tidak ada
+                        from train_schedule import calculate_fare
+                        region = route[0].get('region', None)
+                        # Buat list stasiun dari awal ke akhir
+                        route_list = [leg['start_station'] for leg in route] + [route[-1]['destination_station']]
+                        if route_list and region:
+                            fare = calculate_fare(route_list, region)
+                if fare is not None:
+                    line += f"Tarif: Rp{fare:,}\n"
+                # ---------------------------------------------------
+
+                self.result_text.insert(tk.END, line + "\n")
 
                 for leg in route:
                     details = f"  • Naik KA {leg['train_name']} ({leg['train_id']})\n"
@@ -286,104 +327,10 @@ class AppGUI(tk.Tk):
                     occupancy = leg.get('occupancy_percentage', -1)
                     occupancy_str = f"{occupancy}%" if occupancy != -1 else "N/A"
                     details += f"    - Perkiraan Okupansi: {occupancy_str}\n"
+                    # --- Hapus tarif per leg ---
+                    # ...hapus blok tarif per leg di sini...
+                    # ---------------------------
                     self.result_text.insert(tk.END, details)
 
         self.result_text.config(state=tk.DISABLED)
-        input_frame.pack(fill=tk.X, padx=5, pady=5)
-        input_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(input_frame, text="Dari Stasiun:").grid(
-            row=0, column=0, padx=5, pady=5, sticky="w")
-        self.from_station_cb = ttk.Combobox(input_frame, state="readonly")
-        self.from_station_cb.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-
-        ttk.Label(input_frame, text="Ke Stasiun:").grid(
-            row=1, column=0, padx=5, pady=5, sticky="w")
-        self.to_station_cb = ttk.Combobox(input_frame, state="readonly")
-        self.to_station_cb.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-
-        # --- WIDGET TANGGAL DAN WAKTU ---
-        ttk.Label(input_frame, text="Tanggal Berangkat:").grid(
-            row=2, column=0, padx=5, pady=5, sticky="w")
-        self.date_entry = ttk.Entry(input_frame)
-        self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
-
-        ttk.Label(input_frame, text="Jam Berangkat:").grid(
-            row=3, column=0, padx=5, pady=5, sticky="w")
-        self.time_entry = ttk.Entry(input_frame)
-        self.time_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
-
-       
-
-    # --- TAMBAHKAN HANDLER INI ---
-    def _on_region_selected(self, event=None):
-        """Memperbarui dropdown stasiun saat wilayah baru dipilih."""
-        region_enum = self.regions[self.selected_region.get()]
-
-        # Ambil daftar stasiun dari objek schedule di dalam app_logic
-        stations = self.app_logic.schedule.get_available_stations_by_region(
-            region_enum)
-
-        self.from_station_cb['values'] = stations
-        self.to_station_cb['values'] = stations
-
-        # Kosongkan pilihan sebelumnya
-        self.from_station_cb.set('')
-        self.to_station_cb.set('')
-        self.result_text.config(state=tk.NORMAL)
-        self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(
-            tk.END, "Silakan pilih stasiun keberangkatan dan tujuan.")
-        self.result_text.config(state=tk.DISABLED)
-
-    def _find_route_clicked(self):
-        from_station = self.from_station_cb.get()
-        to_station = self.to_station_cb.get()
-
-        if not from_station or not to_station:
-            messagebox.showwarning(
-                "Input Tidak Lengkap", "Harap pilih stasiun keberangkatan dan tujuan.")
-            return
-
-        try:
-            # --- AMBIL DAN PARSE INPUT TANGGAL & JAM ---
-            date_str = self.date_entry.get()
-            time_str = self.time_entry.get()
-            departure_datetime = datetime.datetime.strptime(
-                f"{date_str} {time_str}", "%Y-%m-%d %H:%M"
-            )
-
-            # --- DAPATKAN WILAYAH YANG DIPILIH DARI ENUM ---
-            region_enum = self.regions[self.selected_region.get()]
-
-            # --- PANGGIL find_routes DENGAN PARAMETER WILAYAH ---
-            routes = self.app_logic.find_routes(
-                from_station, to_station, departure_datetime, region_enum
-            )
-            self._display_results(routes)
-
-        except ValueError:
-            messagebox.showerror(
-                "Error", "Format waktu tidak valid. Gunakan format HH:MM.")
-        except Exception as e:
-            messagebox.showerror("Error Tak Terduga",
-                                 f"Terjadi kesalahan: {e}")
-
-    def _display_results(self, routes: List[List[Dict[str, Any]]]):
-        self.result_text.config(state=tk.NORMAL)
-        self.result_text.delete(1.0, tk.END)
-
-        if not routes:
-            self.result_text.insert(tk.END, "Tidak ada rute yang ditemukan.")
-        else:
-            for i, route in enumerate(routes):
-                # ... (Logika untuk menampilkan rute)
-                for leg in route:
-                    occupancy = leg.get('occupancy_percentage', -1)
-                    # --- TAMPILKAN N/A JIKA OKUPANSI TIDAK TERSEDIA ---
-                    occupancy_str = f"{occupancy}%" if occupancy != - \
-                        1 else "N/A"
-                    details += f"    - Perkiraan Okupansi: {occupancy_str}\n"
-                self.result_text.insert(tk.END, details)
-
-        self.result_text.config(state=tk.DISABLED)
