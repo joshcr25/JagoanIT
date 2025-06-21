@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/8ebc920b660442bbaebae8e13ce00e40/artifacts
+deleted_time: 1750511143000
+end_time: 1750510266044
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: deleted
+run_id: 8ebc920b660442bbaebae8e13ce00e40
+run_name: bedecked-finch-242
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750510265985
+status: 3
+tags: []
+user_id: acer

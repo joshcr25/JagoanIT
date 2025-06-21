@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/f9f0c1ad971a4405b7ab81a80d49c8e9/artifacts
+deleted_time: 1750511143001
+end_time: 1750510141148
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: deleted
+run_id: f9f0c1ad971a4405b7ab81a80d49c8e9
+run_name: unequaled-dolphin-71
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750510141098
+status: 3
+tags: []
+user_id: acer

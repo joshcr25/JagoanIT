@@ -1,6 +1,7 @@
 import datetime
 from enum import Enum
 from typing import List, Dict, Set
+import mlflow
 import numpy as np
 from data_models import Train
 # Tambahkan import Region jika perlu
@@ -46,7 +47,7 @@ EVENING_PEAK_END = datetime.time(19, 0)
 
 
 def _avg(r): return sum(
-    map(int, r.replace('%', '').replace('+', '').split('-'))) // 2
+    map(int, r.replace('%', '').replace('+', '').split('-'))) // len(list(map(int, r.replace('%', '').replace('+', '').split('-'))))
 
 
 OCCUPANCY_MATRIX = {
@@ -157,42 +158,77 @@ def get_direction(route: List[str]) -> Direction:
 
 
 def get_adjacent_periods(current_time: datetime.datetime) -> List[tuple[TimePeriod, float]]:
-    # ... (fungsi ini diasumsikan sudah ada dan benar)
-    # Contoh implementasi sederhana:
+    """
+    Mengembalikan satu atau dua periode waktu beserta bobotnya, jika waktu berada di antara dua periode (transisi).
+    """
     time = current_time.time()
     weekday = current_time.weekday()
 
     if weekday >= 5:  # Sabtu & Minggu
         return [(TimePeriod.AKHIR_PEKAN, 1.0)]
 
+    # Definisi transisi antar periode
     if MORNING_PEAK_START <= time < MORNING_PEAK_END:
+        # Transisi 10 menit sebelum akhir puncak pagi
+        transition_start = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_END) - datetime.timedelta(minutes=10)).time()
+        if transition_start <= time < MORNING_PEAK_END:
+            # Interpolasi antara PUNCAK_PAGI dan SIANG
+            delta = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_END) - datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_pagi = delta / 10
+            w_siang = 1 - w_pagi
+            return [(TimePeriod.PUNCAK_PAGI, w_pagi), (TimePeriod.SIANG, w_siang)]
         return [(TimePeriod.PUNCAK_PAGI, 1.0)]
     if DAYTIME_START <= time < DAYTIME_END:
+        # Transisi 10 menit sebelum akhir siang
+        transition_start = (datetime.datetime.combine(current_time.date(), DAYTIME_END) - datetime.timedelta(minutes=10)).time()
+        if transition_start <= time < DAYTIME_END:
+            delta = (datetime.datetime.combine(current_time.date(), DAYTIME_END) - datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_siang = delta / 10
+            w_sore = 1 - w_siang
+            return [(TimePeriod.SIANG, w_siang), (TimePeriod.PUNCAK_SORE, w_sore)]
         return [(TimePeriod.SIANG, 1.0)]
     if EVENING_PEAK_START <= time < EVENING_PEAK_END:
+        # Transisi 10 menit sebelum akhir puncak sore
+        transition_start = (datetime.datetime.combine(current_time.date(), EVENING_PEAK_END) - datetime.timedelta(minutes=10)).time()
+        if transition_start <= time < EVENING_PEAK_END:
+            delta = (datetime.datetime.combine(current_time.date(), EVENING_PEAK_END) - datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_sore = delta / 10
+            w_malam = 1 - w_sore
+            return [(TimePeriod.PUNCAK_SORE, w_sore), (TimePeriod.MALAM, w_malam)]
         return [(TimePeriod.PUNCAK_SORE, 1.0)]
-
-    # Placeholder untuk transisi, bisa dibuat lebih kompleks
+    # Transisi malam ke pagi (misal 10 menit sebelum MORNING_PEAK_START)
+    transition_start = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_START) - datetime.timedelta(minutes=10)).time()
+    if transition_start <= time < MORNING_PEAK_START:
+        delta = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_START) - datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+        w_malam = delta / 10
+        w_pagi = 1 - w_malam
+        return [(TimePeriod.MALAM, w_malam), (TimePeriod.PUNCAK_PAGI, w_pagi)]
+    # Default malam
     return [(TimePeriod.MALAM, 1.0)]
 
 
 def interpolate_occupancy(line: Line, direction: Direction, periods_weights: List[tuple[TimePeriod, float]]) -> int:
-    # ... (fungsi ini diasumsikan sudah ada dan benar)
-    # Contoh implementasi sederhana:
-    # Ini harusnya mengambil data dari OCCUPANCY_MATRIX dan meratakannya berdasarkan bobot
-    # Untuk tujuan demonstrasi, kita kembalikan nilai dummy
-    base_occ = {
-        TimePeriod.PUNCAK_PAGI: 85,
-        TimePeriod.SIANG: 50,
-        TimePeriod.PUNCAK_SORE: 90,
-        TimePeriod.MALAM: 40,
-        TimePeriod.AKHIR_PEKAN: 60,
-    }
-
-    total_occ = 0
+    """
+    Mengambil data dari OCCUPANCY_MATRIX dan meratakannya berdasarkan bobot periods_weights.
+    Jika data tidak ada, fallback ke DEFAULT_OCCUPANCY.
+    """
+    occ_sum = 0.0
+    occ_matrix = OCCUPANCY_MATRIX.get(line)
+    if not occ_matrix:
+        return DEFAULT_OCCUPANCY
+    # Cek direction, fallback ke DUA_ARAH jika tidak ada
+    if direction not in occ_matrix:
+        if Direction.DUA_ARAH in occ_matrix:
+            occ_dir = occ_matrix[Direction.DUA_ARAH]
+        else:
+            return DEFAULT_OCCUPANCY
+    else:
+        occ_dir = occ_matrix[direction]
     for period, weight in periods_weights:
-        total_occ += base_occ.get(period, 50) * weight
-    return int(total_occ)
+        occ = occ_dir.get(period, DEFAULT_OCCUPANCY)
+        occ_sum += occ * weight
+    occ_sum = max(MIN_OCCUPANCY, min(MAX_OCCUPANCY, occ_sum))
+    return int(round(occ_sum))
 
 
 # --- FUNGSI HITUNG JARAK TOTAL UNTUK RUTE JABODETABEK ---
@@ -331,96 +367,60 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     Memprediksi okupansi untuk semua stasiun dalam rute kereta dengan interpolasi spasial
     yang disesuaikan dengan waktu dan arah perjalanan.
     """
-    occupancy_map = {}
-    route = train.route
-    if not route:
+    with mlflow.start_run(run_name="occupancy_prediction"):
+        occupancy_map = {}
+        route = train.route
+        if not route:
+            return occupancy_map
+
+        cumulative_distances = get_cumulative_distances(route)
+        if not cumulative_distances or len(cumulative_distances) < 2:
+            positions = np.linspace(0, 1, len(route))
+        else:
+            total_distance = cumulative_distances[-1]
+            positions = np.array(cumulative_distances) / total_distance
+
+        line = get_line(route)
+        direction = get_direction(route)
+        periods_weights = get_adjacent_periods(current_time)
+        base_occupancy = interpolate_occupancy(line, direction, periods_weights)
+
+        n = len(route)
+        if n == 1:
+            occupancy_map[route[0]] = int(base_occupancy)
+            return occupancy_map
+
+        positions = np.linspace(0, 1, n)
+        is_puncak_pagi = any(p == TimePeriod.PUNCAK_PAGI for p, w in periods_weights)
+        is_puncak_sore = any(p == TimePeriod.PUNCAK_SORE for p, w in periods_weights)
+        is_menuju_jakarta = direction == Direction.MENUJU_JAKARTA
+        is_meninggalkan_jakarta = direction in [
+            Direction.MENUJU_BOGOR,
+            Direction.MENUJU_CIKARANG,
+            Direction.MENUJU_RANGKASBITUNG,
+            Direction.MENUJU_TANGERANG,
+        ]
+
+        if is_puncak_sore and is_meninggalkan_jakarta:
+            print("INFO: Menggunakan model KURVA PELURUHAN untuk Puncak Sore, meninggalkan Jakarta.")
+            k_decay = 2.0
+            station_factors = np.exp(-k_decay * positions) * 0.9 + 0.15
+        elif is_puncak_pagi and is_menuju_jakarta:
+            print("INFO: Menggunakan model KURVA PERTUMBUHAN untuk Puncak Pagi, menuju Jakarta.")
+            k_growth = 3.0
+            station_factors = np.exp(-k_growth * (1 - positions)) * 0.9 + 0.1
+        else:
+            print("INFO: Menggunakan model SINUSOIDAL default.")
+            station_factors = 0.7 + 0.3 * np.sin(np.pi * positions)
+
+        for i, station in enumerate(route):
+            predicted_occ = min(100, base_occupancy * station_factors[i])
+            occupancy_map[station] = int(predicted_occ)
+
+        occupancy_map['__fare__'] = calculate_fare(route, train.region)
+        mlflow.log_metric("fare", occupancy_map['__fare__'])
         return occupancy_map
 
-    # 1. Dapatkan jarak kumulatif (perlu fungsi/data tambahan)
-    # Misal kita punya fungsi get_cumulative_distances(route)
-    cumulative_distances = get_cumulative_distances(
-        route)  # Hasilnya -> [0, 7.0, 12.2, 17.4, ...]
-
-    if not cumulative_distances or len(cumulative_distances) < 2:
-        # fallback jika data jarak tidak ada atau rute terlalu pendek
-        positions = np.linspace(0, 1, len(route))
-    else:
-        total_distance = cumulative_distances[-1]
-        # 2. Normalisasi jarak ke rentang [0, 1]
-        positions = np.array(cumulative_distances) / total_distance
-
-    line = get_line(route)
-    direction = get_direction(route)
-    periods_weights = get_adjacent_periods(current_time)
-
-    # Menghitung okupansi dasar berdasarkan interpolasi waktu
-    base_occupancy = interpolate_occupancy(line, direction, periods_weights)
-
-    n = len(route)
-    if n == 1:
-        # Jika rute hanya 1 stasiun, okupansi langsung diterapkan
-        occupancy_map[route[0]] = int(base_occupancy)
-        return occupancy_map
-
-    # Membuat array posisi stasiun dari 0 (awal) hingga 1 (akhir)
-    positions = np.linspace(0, 1, n)
-
-    # --- PEMILIHAN MODEL KURVA OKUPANSI ---
-
-    # Cek apakah sedang dalam periode puncak pagi atau sore
-    is_puncak_pagi = any(p == TimePeriod.PUNCAK_PAGI for p,
-                         w in periods_weights)
-    is_puncak_sore = any(p == TimePeriod.PUNCAK_SORE for p,
-                         w in periods_weights)
-
-    # Tentukan arah perjalanan utama
-    is_menuju_jakarta = direction == Direction.MENUJU_JAKARTA
-    is_meninggalkan_jakarta = direction in [
-        Direction.MENUJU_BOGOR,
-        Direction.MENUJU_CIKARANG,
-        Direction.MENUJU_RANGKASBITUNG,
-        Direction.MENUJU_TANGERANG,
-    ]
-
-    # Model 1: Kurva Peluruhan (Sore Hari, Meninggalkan Jakarta)
-    # Okupansi tinggi di awal, menurun seiring perjalanan
-    if is_puncak_sore and is_meninggalkan_jakarta:
-        print("INFO: Menggunakan model KURVA PELURUHAN untuk Puncak Sore, meninggalkan Jakarta.")
-        # k_decay mengontrol kecepatan penurunan. Semakin besar, semakin cepat turun.
-        k_decay = 2.0
-        # Faktor dimulai dari 1 dan menurun. Penambahan 0.1 agar tidak turun ke nol.
-        station_factors = np.exp(-k_decay * positions) * 0.9 + 0.15
-
-    # Model 2: Kurva Pertumbuhan (Pagi Hari, Menuju Jakarta)
-    # Okupansi rendah di awal, meningkat tajam mendekati tujuan
-    elif is_puncak_pagi and is_menuju_jakarta:
-        print(
-            "INFO: Menggunakan model KURVA PERTUMBUHAN untuk Puncak Pagi, menuju Jakarta.")
-        # Ini adalah kebalikan dari kurva peluruhan.
-        # Kita membalik array posisi untuk mensimulasikan penumpang yang terus naik.
-        k_growth = 3.0
-        # Faktor dimulai dari rendah dan naik hingga 1.
-        station_factors = np.exp(-k_growth * (1 - positions)) * 0.9 + 0.1
-
-    # Model 3: Default Sinusoidal (Luar Jam Sibuk atau Arah Sebaliknya)
-    # Okupansi memuncak di tengah rute.
-    else:
-        print("INFO: Menggunakan model SINUSOIDAL default.")
-        # Sedikit penyesuaian dari formula asli agar lebih realistis
-        # Puncak tetap 1.0, tapi dasarnya 0.7
-        station_factors = 0.7 + 0.3 * np.sin(np.pi * positions)
-
-    # Terapkan faktor ke okupansi dasar untuk setiap stasiun
-    for i, station in enumerate(route):
-        # Pastikan okupansi tidak melebihi 100% (atau batas atas lainnya)
-        predicted_occ = min(100, base_occupancy * station_factors[i])
-        occupancy_map[station] = int(predicted_occ)
-
-    # Di akhir fungsi, bisa tambahkan info tarif jika ingin:
-    occupancy_map['__fare__'] = calculate_fare(route, train.region)
-    return occupancy_map
-
-# Anda perlu membuat fungsi helper ini
 
 
 def get_cumulative_distances(route: List[str]) -> List[float]:
@@ -445,8 +445,8 @@ def get_cumulative_distances(route: List[str]) -> List[float]:
         ("Lenteng Agung", "Tanjung Barat"): 2.460, ("Tanjung Barat", "Lenteng Agung"): 2.460,
         ("Tanjung Barat", "Pasar Minggu"): 3.031, ("Pasar Minggu", "Tanjung Barat"): 3.031,
         ("Pasar Minggu", "Pasar Minggu Baru"): 1.695, ("Pasar Minggu Baru", "Pasar Minggu"): 1.695,
-        ("Pasar Minggu Baru", "Kalibata"): 1.509, ("Kalibata", "Pasar Minggu Baru"): 1.509,
-        ("Kalibata", "Cawang"): 1.475, ("Cawang", "Kalibata"): 1.475,
+        ("Pasar Minggu Baru", "Duren Kalibata"): 1.509, ("Duren Kalibata", "Pasar Minggu Baru"): 1.509,
+        ("Duren Kalibata", "Cawang"): 1.475, ("Cawang", "Duren Kalibata"): 1.475,
         ("Cawang", "Tebet"): 1.301, ("Tebet", "Cawang"): 1.301,
         ("Tebet", "Manggarai"): 2.601, ("Manggarai", "Tebet"): 2.601,
 

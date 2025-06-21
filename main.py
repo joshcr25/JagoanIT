@@ -28,9 +28,9 @@ def main():
     if missing_maps:
         messagebox.showwarning(
              "File Peta Hilang",
-            f"File peta berikut tidak ditemukan:\n" +
-            f"{', '.join(missing_maps)}\n" +
-            f"Fitur lihat peta mungkin tidak berfungsi untuk wilayah tertentu."
+            "File peta berikut tidak ditemukan:\n" +
+            ", ".join(missing_maps) + "\n" +
+            "Fitur lihat peta mungkin tidak berfungsi untuk wilayah tertentu."
         )
 
     try:

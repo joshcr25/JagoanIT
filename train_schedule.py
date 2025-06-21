@@ -2,6 +2,7 @@
 import csv
 import collections
 from typing import List, Dict, Set
+import math
 # --- UBAH IMPORT ---
 from data_models import Train, Region
 
@@ -136,6 +137,23 @@ def get_total_jabodetabek_distance(route: list) -> float:
         total += get_jabodetabek_distance(route[i], route[i+1])
     return total
 
+def _get_simple_path(route: list) -> list:
+    """
+    Mengembalikan lintasan dari stasiun awal ke akhir tanpa stasiun berulang.
+    Jika ada stasiun yang sama lebih dari sekali, hanya ambil sampai kemunculan pertama stasiun akhir.
+    """
+    seen = set()
+    simple_path = []
+    for st in route:
+        if st in seen:
+            break
+        simple_path.append(st)
+        seen.add(st)
+    # Pastikan stasiun akhir tetap masuk
+    if route and route[-1] not in seen:
+        simple_path.append(route[-1])
+    return simple_path
+
 # --- FUNGSI HITUNG TARIF ---
 def calculate_fare(route: list, region) -> int:
     """
@@ -143,8 +161,10 @@ def calculate_fare(route: list, region) -> int:
     - Kutoarjo-Yogyakarta: 8000 flat
     - Yogyakarta-Palur: 8000 flat
     - Rangkasbitung-Merak: 5000 flat
-    - Jabodetabek: 3000 (25km pertama) + 1000 per 10km berikutnya
+    - Jabodetabek: 3000 (25km pertama) + 1000 per 10km berikutnya (pembulatan ke atas)
     """
+    # Ambil lintasan tanpa stasiun berulang
+    route = _get_simple_path(route)
     if region == Region.YOGYA_SOLO:
         return 8000
     elif region == Region.RANGKASBITUNG_MERAK:
@@ -155,7 +175,7 @@ def calculate_fare(route: list, region) -> int:
             return 3000
         else:
             extra_km = distance - 25
-            extra_blocks = int((extra_km + 9.9999) // 10)  # pembulatan ke atas per 10km
+            extra_blocks = math.ceil(extra_km / 10)
             return 3000 + 1000 * extra_blocks
     else:
         return 0  # fallback

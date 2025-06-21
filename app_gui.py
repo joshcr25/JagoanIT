@@ -303,9 +303,8 @@ class AppGUI(tk.Tk):
                                 train_obj = t
                                 break
                     if train_obj:
-                        fare = self.app_logic.schedule.get_fare_for_train(train_obj, 
-                            from_station=route[0]['start_station'], 
-                            to_station=route[-1]['destination_station'])
+                        # Panggil tanpa from_station/to_station
+                        fare = self.app_logic.schedule.get_fare_for_train(train_obj)
                     else:
                         # fallback: hitung manual jika info train_obj tidak ada
                         from train_schedule import calculate_fare
