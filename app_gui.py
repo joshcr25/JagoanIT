@@ -205,11 +205,13 @@ class AppGUI(tk.Tk):
             row=2, column=0, padx=5, pady=5, sticky="w")
         self.date_entry = ttk.Entry(input_frame)
         self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        
 
         ttk.Label(input_frame, text="Jam Berangkat:").grid(
             row=3, column=0, padx=5, pady=5, sticky="w")
         self.time_entry = ttk.Entry(input_frame)
         self.time_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        
 
         # Frame Hasil
         result_frame = ttk.LabelFrame(main_frame, text="Hasil Rute")
