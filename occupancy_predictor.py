@@ -21,6 +21,13 @@ class Direction(Enum):
     MENUJU_JAKARTAKOTA = 1
     MENUJU_DEPOK = 8
     MENUJU_ANGKE = 9
+    MENUJU_KAMPUNGBANDAN = 10
+    MENUJU_NAMBO = 11
+    DARI_DEPOK_MENUJU_MANGGARAI = 12
+    MENUJU_TANAHABANG = 13
+    MENUJU_BEKASI = 14
+    MENUJU_DURI = 15
+    DARI_BOGOR_MENUJU_MANGGARAI = 16
     MENUJU_BOGOR = 2
     MENUJU_CIKARANG = 3
     MENUJU_RANGKASBITUNG = 4
@@ -45,28 +52,40 @@ DAYTIME_END = datetime.time(15, 29)
 EVENING_PEAK_START = datetime.time(15, 30)
 EVENING_PEAK_END = datetime.time(19, 0)
 
-# Occupancy data matrix
 
 
+# metode __avg (Misalnya 100% - 120%) mereturn 110%
 def _avg(r): return sum(
     map(int, r.replace('%', '').replace('+', '').split('-'))) // len(list(map(int, r.replace('%', '').replace('+', '').split('-'))))
 
-
+# Matriks data okupansi
 OCCUPANCY_MATRIX = {
     Line.BOGOR: {
         Direction.MENUJU_JAKARTAKOTA: {
-            TimePeriod.PUNCAK_PAGI: _avg("150-200%"), TimePeriod.SIANG: _avg("40-60%"),
-            TimePeriod.PUNCAK_SORE: _avg("70-100%"), TimePeriod.MALAM: _avg("50-80%"),
-            TimePeriod.AKHIR_PEKAN: _avg("90-120%"),
+            # Puncak okupansi berada di stasiun yg menjelang pusat kota yaitu dari
+            # Pasar Minggu Baru sampai Manggarai (yaitu 100-120%) saat pagi ke arah Jakarta Kota
+            TimePeriod.PUNCAK_PAGI: _avg("100-120%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("40-70%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
         },
+            # Puncak okupansi berada di stasiun yg menuju pusat kota yaitu dari
+            # Jakarta Kota sampai Manggarai atau dari Manggarai ke Bogor (yaitu 100%-120%) saat sore ke arah Bogor
         Direction.MENUJU_BOGOR: {
-            TimePeriod.PUNCAK_PAGI: _avg("60-90%"), TimePeriod.SIANG: _avg("50-70%"),
-            TimePeriod.PUNCAK_SORE: _avg("140-180%"), TimePeriod.MALAM: _avg("80-110%"),
-            TimePeriod.AKHIR_PEKAN: _avg("70-100%"),
+            TimePeriod.PUNCAK_PAGI: _avg("40-70%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("100-120%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
+        },
+        
+            # Puncak okupansi berada di stasiun yg menuju pusat kota yaitu dari
+            # Pasar Minggu sampai Tebet (yaitu 120-180%) saat sore ke arah Bogor
+        Direction.MENUJU_MANGGARAI: {
+            TimePeriod.PUNCAK_PAGI: _avg("120-180%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("40-70%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("40-70%"),
         },
     },
     Line.CIKARANG: {
-        Direction.MENUJU_JAKARTA: {
+        Direction.MENUJU_KAMPUNGBANDAN: {
             TimePeriod.PUNCAK_PAGI: _avg("130-170%"), TimePeriod.SIANG: _avg("35-55%"),
             TimePeriod.PUNCAK_SORE: _avg("60-80%"), TimePeriod.MALAM: _avg("40-60%"),
             TimePeriod.AKHIR_PEKAN: _avg("60-90%"),
@@ -78,7 +97,7 @@ OCCUPANCY_MATRIX = {
         },
     },
     Line.RANGKASBITUNG: {
-        Direction.MENUJU_JAKARTA: {
+        Direction.MENUJU_TANAHABANG: {
             TimePeriod.PUNCAK_PAGI: _avg("160-220%"), TimePeriod.SIANG: _avg("50-70%"),
             TimePeriod.PUNCAK_SORE: _avg("80-110%"), TimePeriod.MALAM: _avg("60-90%"),
             TimePeriod.AKHIR_PEKAN: _avg("80-110%"),
@@ -90,7 +109,7 @@ OCCUPANCY_MATRIX = {
         },
     },
     Line.TANGERANG: {
-        Direction.MENUJU_JAKARTA: {
+        Direction.MENUJU_DURI: {
             TimePeriod.PUNCAK_PAGI: _avg("120-160%"), TimePeriod.SIANG: _avg("40-60%"),
             TimePeriod.PUNCAK_SORE: _avg("60-80%"), TimePeriod.MALAM: _avg("45-65%"),
             TimePeriod.AKHIR_PEKAN: _avg("50-75%"),
@@ -132,7 +151,7 @@ def get_line(route: List[str]) -> Line:
         return Line.TANGERANG
     if route_set.intersection({"ancol", "tanjung priok"}):
         return Line.TANJUNG_PRIOK
-    if route_set.intersection({"depok", "citayam", "bogor", "tebet"}):
+    if route_set.intersection({"bogor", "bojong gede", "cilebut", "nambo", "depok", "nambo"}):
         return Line.BOGOR
     return Line.UNKNOWN
 
@@ -146,16 +165,28 @@ def get_direction(route: List[str]) -> Direction:
 
     if "tanjung priok" in first or "tanjung priok" in last:
         return Direction.DUA_ARAH
-    if any(term in last for term in ["jakarta", "duri", "angke", "tanah abang"]):
-        return Direction.MENUJU_JAKARTA
-    if any(term in last for term in ["bogor", "nambo"]):
+    if "tanah abang" in last:
+        return Direction.MENUJU_TANAHABANG
+    if "jakarta kota" in last:
+        return Direction.MENUJU_JAKARTAKOTA
+    if "bogor" in last:
         return Direction.MENUJU_BOGOR
+    if "nambo" in last:
+        return Direction.MENUJU_NAMBO
+    if "depok" in last:
+        return Direction.MENUJU_DEPOK
+    if "manggarai" in last and any(term in first for term in ["bogor", "depok"]):
+        return Direction.MENUJU_MANGGARAI
     if "cikarang" in last:
         return Direction.MENUJU_CIKARANG
-    if any(term in last for term in ["rangkasbitung", "parung panjang", "serpong"]):
+    if any(term in last for term in ["rangkasbitung", "parung panjang"]):
         return Direction.MENUJU_RANGKASBITUNG
     if "tangerang" in last:
         return Direction.MENUJU_TANGERANG
+    if "duri" in last:
+        return Direction.MENUJU_DURI
+    if "bekasi" in last:
+        return Direction.MENUJU_BEKASI
     return Direction.UNKNOWN
 
 
@@ -338,13 +369,13 @@ def get_cumulative_distance(route: List[str]) -> List[float]:
         ("Lenteng Agung", "Tanjung Barat"): 2.460,
         ("Tanjung Barat", "Pasar Minggu"): 3.031,
         ("Pasar Minggu", "Pasar Minggu Baru"): 1.695,
-        ("Pasar Minggu Baru", "Kalibata"): 1.509,
-        ("Kalibata", "Cawang"): 1.475,
+        ("Pasar Minggu Baru", "Duren Kalibata"): 1.509,
+        ("Duren Kalibata", "Cawang"): 1.475,
         ("Cawang", "Tebet"): 1.301,
         ("Tebet", "Manggarai"): 2.601,
 
-        # B. Rangkas bitung - Tanah abang
-        ("Rangkas bitung", "Citeras"): 9.847,
+        # B. Rangkasbitung - Tanah abang
+        ("Rangkasbitung", "Citeras"): 9.847,
         ("Citeras", "Maja"): 7.293,
         ("Maja", "Cikoya"): 1.835,
         ("Cikoya", "Tigaraksa"): 2.651,
