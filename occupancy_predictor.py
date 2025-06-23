@@ -1,7 +1,7 @@
 import datetime
 from enum import Enum
 from typing import List, Dict, Set
-import mlflow
+import re
 import numpy as np
 from data_models import Train
 # Tambahkan import Region jika perlu
@@ -18,8 +18,8 @@ class Line(Enum):
 
 
 class Direction(Enum):
-    MENUJU_JAKARTAKOTA = 1
-    MENUJU_DEPOK = 8
+    DARI_BOGOR_MENUJU_JAKARTAKOTA = 1
+    DARI_BOGOR_MENUJU_DEPOK = 8
     MENUJU_ANGKE = 9
     MENUJU_KAMPUNGBANDAN = 10
     MENUJU_NAMBO = 11
@@ -28,7 +28,11 @@ class Direction(Enum):
     MENUJU_BEKASI = 14
     MENUJU_DURI = 15
     DARI_BOGOR_MENUJU_MANGGARAI = 16
-    MENUJU_BOGOR = 2
+    DARI_TANAH_ABANG_MENUJU_MANGGARAI = 17
+    DARI_MANGGARAI_MENUJU_BOGOR = 18
+    DARI_NAMBO_MENUJU_JAKARTAKOTA = 19
+    DARI_JAKARTAKOTA_MENUJU_NAMBO = 20
+    DARI_JAKARTAKOTA_MENUJU_BOGOR = 2
     MENUJU_CIKARANG = 3
     MENUJU_RANGKASBITUNG = 4
     MENUJU_TANGERANG = 5
@@ -38,50 +42,86 @@ class Direction(Enum):
 
 class TimePeriod(Enum):
     PUNCAK_PAGI = 1
-    SIANG = 2
-    PUNCAK_SORE = 3
-    MALAM = 4
-    AKHIR_PEKAN = 5
+    PUNCAK_SORE = 2 # Re-numbering to keep it compact
+    MALAM = 3
+    AKHIR_PEKAN = 4
+    AWAL_SIANG = 5 # New granular period
+    MAKAN_SIANG = 6 # New granular period
+    AKHIR_SIANG = 7 # New granular period
 
 
-# Time definitions
-MORNING_PEAK_START = datetime.time(5, 30)
-MORNING_PEAK_END = datetime.time(8, 30)
-DAYTIME_START = datetime.time(8, 31)
-DAYTIME_END = datetime.time(15, 29)
-EVENING_PEAK_START = datetime.time(15, 30)
-EVENING_PEAK_END = datetime.time(19, 0)
+
+# Definisi periode waktu yang konsisten dengan enum TimePeriod
+TIME_PERIOD_DEFINITIONS = {
+    TimePeriod.PUNCAK_PAGI: (datetime.time(5, 30), datetime.time(8, 30)),
+    TimePeriod.AWAL_SIANG: (datetime.time(8, 30), datetime.time(12, 0)),
+    TimePeriod.MAKAN_SIANG: (datetime.time(12, 0), datetime.time(14,0)),
+    TimePeriod.AKHIR_SIANG: (datetime.time(14, 0), datetime.time(15, 30)),
+    TimePeriod.PUNCAK_SORE: (datetime.time(15, 30), datetime.time(19, 0)),
+    # MALAM adalah waktu di luar periode-periode di atas
+}
 
 
 
 # metode __avg (Misalnya 100% - 120%) mereturn 110%
-def _avg(r): return sum(
-    map(int, r.replace('%', '').replace('+', '').split('-'))) // len(list(map(int, r.replace('%', '').replace('+', '').split('-'))))
+def _avg(percentage_range):
+    match = re.match(r"(\d+)(?:\s*-\s*(\d+))?\s*%", percentage_range)
+    if match:
+        if match.group(2):  # Jika ada angka kedua (rentang)
+            start, end = int(match.group(1)), int(match.group(2))
+            return (start + end) // 2
+        else:  # Jika hanya ada satu angka
+            return int(match.group(1))
+    else:
+        raise ValueError(f"Invalid percentage range format: {percentage_range}")
+
+
 
 # Matriks data okupansi
 OCCUPANCY_MATRIX = {
     Line.BOGOR: {
-        Direction.MENUJU_JAKARTAKOTA: {
+        Direction.DARI_BOGOR_MENUJU_JAKARTAKOTA: {
             # Puncak okupansi berada di stasiun yg menjelang pusat kota yaitu dari
-            # Pasar Minggu Baru sampai Manggarai (yaitu 100-120%) saat pagi ke arah Jakarta Kota
+            # Pasar Minggu Baru sampai Manggarai (yaitu 100-180%) saat pagi ke arah Jakarta Kota
             TimePeriod.PUNCAK_PAGI: _avg("100-120%"), TimePeriod.SIANG: _avg("40-70%"),
             TimePeriod.PUNCAK_SORE: _avg("40-70%"), TimePeriod.MALAM: _avg("40-70%"),
             TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
         },
             # Puncak okupansi berada di stasiun yg menuju pusat kota yaitu dari
             # Jakarta Kota sampai Manggarai atau dari Manggarai ke Bogor (yaitu 100%-120%) saat sore ke arah Bogor
-        Direction.MENUJU_BOGOR: {
+        Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR: {
             TimePeriod.PUNCAK_PAGI: _avg("40-70%"), TimePeriod.SIANG: _avg("40-70%"),
             TimePeriod.PUNCAK_SORE: _avg("100-120%"), TimePeriod.MALAM: _avg("40-70%"),
             TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
         },
         
             # Puncak okupansi berada di stasiun yg menuju pusat kota yaitu dari
-            # Pasar Minggu sampai Tebet (yaitu 120-180%) saat sore ke arah Bogor
-        Direction.MENUJU_MANGGARAI: {
+            # Manggarai, (yaitu 120-180%) saat pagi ke arah Manggarai
+            
+            # Puncak okupansi berada di stasiun yg menuju pusat kota yaitu dari
+            # Bogor ke Manggarai saat siang hingga sore hari saat akhir pekan.
+            # Okupansinya meningkat hingga 70-90%
+        Direction.DARI_BOGOR_MENUJU_MANGGARAI: {
             TimePeriod.PUNCAK_PAGI: _avg("120-180%"), TimePeriod.SIANG: _avg("40-70%"),
             TimePeriod.PUNCAK_SORE: _avg("40-70%"), TimePeriod.MALAM: _avg("40-70%"),
-            TimePeriod.AKHIR_PEKAN: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
+        },
+        Direction.DARI_MANGGARAI_MENUJU_BOGOR: {
+            TimePeriod.PUNCAK_PAGI: _avg("40-70%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("100-130%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
+        },
+        # Setelah melewati stasiun Citayam, kereta tujuan Nambo akan jauh lebih lenggang
+        # dibandingkan kereta yang melanjutkan perjalanan ke Bogor
+        Direction.DARI_NAMBO_MENUJU_JAKARTAKOTA: {
+            TimePeriod.PUNCAK_PAGI: _avg("70-100%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("40-70%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
+        },
+        Direction.DARI_JAKARTAKOTA_MENUJU_NAMBO: {
+            TimePeriod.PUNCAK_PAGI: _avg("40-70%"), TimePeriod.SIANG: _avg("40-70%"),
+            TimePeriod.PUNCAK_SORE: _avg("70-100%"), TimePeriod.MALAM: _avg("40-70%"),
+            TimePeriod.AKHIR_PEKAN: _avg("70-90%"),
         },
     },
     Line.CIKARANG: {
@@ -151,10 +191,50 @@ def get_line(route: List[str]) -> Line:
         return Line.TANGERANG
     if route_set.intersection({"ancol", "tanjung priok"}):
         return Line.TANJUNG_PRIOK
-    if route_set.intersection({"bogor", "bojong gede", "cilebut", "nambo", "depok", "nambo"}):
+    if route_set.intersection({"bogor", "bojong gede", "cilebut", "depok", "nambo"}):
         return Line.BOGOR
     return Line.UNKNOWN
 
+
+def _direction_by_last_station(last: str) -> Direction:
+    last_station_map = {
+        "tanjung priok": Direction.DUA_ARAH,
+        "tanah abang": Direction.MENUJU_TANAHABANG,
+        "nambo": Direction.MENUJU_NAMBO,
+        "angke": Direction.MENUJU_ANGKE,
+        "kampung bandan": Direction.MENUJU_KAMPUNGBANDAN,
+        "cikarang": Direction.MENUJU_CIKARANG,
+        "tangerang": Direction.MENUJU_TANGERANG,
+        "duri": Direction.MENUJU_DURI,
+        "bekasi": Direction.MENUJU_BEKASI,
+    }
+    for key, value in last_station_map.items():
+        if key in last:
+            return value
+    if any(term in last for term in ["rangkasbitung", "parung panjang"]):
+        return Direction.MENUJU_RANGKASBITUNG
+    return None
+
+def _direction_by_first_last(first: str, last: str) -> Direction:
+    if "jakarta kota" in first and "bogor" in last:
+        return Direction.DARI_BOGOR_MENUJU_JAKARTAKOTA
+    if "bogor" in last and "jakarta kota" in first:
+        return Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR
+    if "depok" in last and "bogor" in first:
+        return Direction.DARI_BOGOR_MENUJU_DEPOK
+    if "manggarai" in last and "depok" in first:
+        return Direction.DARI_DEPOK_MENUJU_MANGGARAI
+    if "manggarai" in last and "bogor" in first:
+        return Direction.DARI_BOGOR_MENUJU_MANGGARAI
+    if "manggarai" in last and "tanah abang" in first:
+        return Direction.DARI_TANAH_ABANG_MENUJU_MANGGARAI
+    if "bogor" in last and "manggarai" in first:
+        return Direction.DARI_MANGGARAI_MENUJU_BOGOR
+    if "nambo" in last and "jakarta kota" in first:
+        return Direction.DARI_JAKARTAKOTA_MENUJU_NAMBO
+    if "jakarta kota" in last and "nambo" in first:
+        return Direction.DARI_NAMBO_MENUJU_JAKARTAKOTA
+    return None
 
 def get_direction(route: List[str]) -> Direction:
     """Determines the direction of a train based on its route."""
@@ -163,30 +243,16 @@ def get_direction(route: List[str]) -> Direction:
     first = normalize_station(route[0])
     last = normalize_station(route[-1])
 
-    if "tanjung priok" in first or "tanjung priok" in last:
-        return Direction.DUA_ARAH
-    if "tanah abang" in last:
-        return Direction.MENUJU_TANAHABANG
-    if "jakarta kota" in last:
-        return Direction.MENUJU_JAKARTAKOTA
-    if "bogor" in last:
-        return Direction.MENUJU_BOGOR
-    if "nambo" in last:
-        return Direction.MENUJU_NAMBO
-    if "depok" in last:
-        return Direction.MENUJU_DEPOK
-    if "manggarai" in last and any(term in first for term in ["bogor", "depok"]):
-        return Direction.MENUJU_MANGGARAI
-    if "cikarang" in last:
-        return Direction.MENUJU_CIKARANG
-    if any(term in last for term in ["rangkasbitung", "parung panjang"]):
-        return Direction.MENUJU_RANGKASBITUNG
-    if "tangerang" in last:
-        return Direction.MENUJU_TANGERANG
-    if "duri" in last:
-        return Direction.MENUJU_DURI
-    if "bekasi" in last:
-        return Direction.MENUJU_BEKASI
+    # Check for directions based on last station only
+    direction = _direction_by_last_station(last)
+    if direction:
+        return direction
+
+    # Check for directions based on first and last station combinations
+    direction = _direction_by_first_last(first, last)
+    if direction:
+        return direction
+
     return Direction.UNKNOWN
 
 
@@ -199,77 +265,81 @@ def get_adjacent_periods(current_time: datetime.datetime) -> List[tuple[TimePeri
 
     if weekday >= 5:  # Sabtu & Minggu
         return [(TimePeriod.AKHIR_PEKAN, 1.0)]
+    
+    puncak_pagi_start, puncak_pagi_end = TIME_PERIOD_DEFINITIONS[TimePeriod.PUNCAK_PAGI]
+    awal_siang_start, awal_siang_end = TIME_PERIOD_DEFINITIONS[TimePeriod.AWAL_SIANG]
+    makan_siang_start, makan_siang_end = TIME_PERIOD_DEFINITIONS[TimePeriod.MAKAN_SIANG]
+    akhir_siang_start, akhir_siang_end = TIME_PERIOD_DEFINITIONS[TimePeriod.AKHIR_SIANG]
+    puncak_sore_start, puncak_sore_end = TIME_PERIOD_DEFINITIONS[TimePeriod.PUNCAK_SORE]
+
 
     # Definisi transisi antar periode
-    if MORNING_PEAK_START <= time < MORNING_PEAK_END:
-        # Transisi 10 menit sebelum akhir puncak pagi
+    if puncak_pagi_start <= time < puncak_pagi_end:
+        # Transisi 60 menit sebelum akhir puncak pagi
         transition_start = (datetime.datetime.combine(
-            current_time.date(), MORNING_PEAK_END) - datetime.timedelta(minutes=10)).time()
-        if transition_start <= time < MORNING_PEAK_END:
+            current_time.date(), puncak_pagi_end) - datetime.timedelta(minutes=60)).time()
+        if transition_start <= time < puncak_pagi_end:
             # Interpolasi antara PUNCAK_PAGI dan SIANG
-            delta = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_END) -
+            delta = (datetime.datetime.combine(current_time.date(), puncak_pagi_end) -
                      datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
-            w_pagi = delta / 10
-            w_siang = 1 - w_pagi
-            return [(TimePeriod.PUNCAK_PAGI, w_pagi), (TimePeriod.SIANG, w_siang)]
-        return [(TimePeriod.PUNCAK_PAGI, 1.0)]
-    if DAYTIME_START <= time < DAYTIME_END:
-        # Transisi 10 menit sebelum akhir siang
+            w_pagi = delta / 60
+            w_awal_siang = 1 - w_pagi
+            return [(TimePeriod.PUNCAK_PAGI, w_pagi), (TimePeriod.AWAL_SIANG, w_awal_siang)]
+        return [(TimePeriod.PUNCAK_PAGI, 1.0)] # No transition, fully in PUNCAK_PAGI
+    if awal_siang_start <= time < awal_siang_end:
+        # Transisi 60 menit sebelum akhir siang
+        transition_start = (datetime.datetime.combine(current_time.date(), awal_siang_end) - datetime.timedelta(minutes=60)).time()
+        if transition_start <= time < awal_siang_end:
+            delta = (datetime.datetime.combine(current_time.date(), awal_siang_end) -
+                     datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_awal_siang = delta / 60
+            w_makan_siang = 1 - w_awal_siang # Transition to MAKAN_SIANG
+            return [(TimePeriod.AWAL_SIANG, w_awal_siang), (TimePeriod.MAKAN_SIANG, w_makan_siang)]
+        return [(TimePeriod.AWAL_SIANG, 1.0)]
+    if makan_siang_start <= time < makan_siang_end:
+        # Transisi 60 menit sebelum akhir makan siang
+        transition_start = (datetime.datetime.combine(current_time.date(), makan_siang_end) - datetime.timedelta(minutes=60)).time()
+        if transition_start <= time < makan_siang_end:
+            delta = (datetime.datetime.combine(current_time.date(), makan_siang_end) -
+                     datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_makan_siang = delta / 60
+            w_akhir_siang = 1 - w_makan_siang # Transition to AKHIR_SIANG
+            return [(TimePeriod.MAKAN_SIANG, w_makan_siang), (TimePeriod.AKHIR_SIANG, w_akhir_siang)]
+        return [(TimePeriod.MAKAN_SIANG, 1.0)]
+    if akhir_siang_start <= time < akhir_siang_end:
+        # Transisi 60 menit sebelum akhir akhir siang
+        transition_start = (datetime.datetime.combine(current_time.date(), akhir_siang_end) - datetime.timedelta(minutes=60)).time()
+        if transition_start <= time < akhir_siang_end:
+            delta = (datetime.datetime.combine(current_time.date(), akhir_siang_end) -
+                     datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
+            w_akhir_siang = delta / 60
+            w_sore = 1 - w_akhir_siang # Transition to PUNCAK_SORE
+            return [(TimePeriod.AKHIR_SIANG, w_akhir_siang), (TimePeriod.PUNCAK_SORE, w_sore)]
+        return [(TimePeriod.AKHIR_SIANG, 1.0)]
+            
+    if puncak_sore_start <= time < puncak_sore_end:
+        # Transisi 60 menit sebelum akhir puncak sore
         transition_start = (datetime.datetime.combine(
-            current_time.date(), DAYTIME_END) - datetime.timedelta(minutes=10)).time()
-        if transition_start <= time < DAYTIME_END:
-            delta = (datetime.datetime.combine(current_time.date(), DAYTIME_END) -
+        current_time.date(), puncak_sore_end) - datetime.timedelta(minutes=60)).time()
+        if transition_start <= time < puncak_sore_end:
+            delta = (datetime.datetime.combine(current_time.date(), puncak_sore_end) -
                      datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
-            w_siang = delta / 10
-            w_sore = 1 - w_siang
-            return [(TimePeriod.SIANG, w_siang), (TimePeriod.PUNCAK_SORE, w_sore)]
-        return [(TimePeriod.SIANG, 1.0)]
-    if EVENING_PEAK_START <= time < EVENING_PEAK_END:
-        # Transisi 10 menit sebelum akhir puncak sore
-        transition_start = (datetime.datetime.combine(
-            current_time.date(), EVENING_PEAK_END) - datetime.timedelta(minutes=10)).time()
-        if transition_start <= time < EVENING_PEAK_END:
-            delta = (datetime.datetime.combine(current_time.date(), EVENING_PEAK_END) -
-                     datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
-            w_sore = delta / 10
+            w_sore = delta / 60 # Transition to MALAM
             w_malam = 1 - w_sore
             return [(TimePeriod.PUNCAK_SORE, w_sore), (TimePeriod.MALAM, w_malam)]
         return [(TimePeriod.PUNCAK_SORE, 1.0)]
-    # Transisi malam ke pagi (misal 10 menit sebelum MORNING_PEAK_START)
-    transition_start = (datetime.datetime.combine(current_time.date(
-    ), MORNING_PEAK_START) - datetime.timedelta(minutes=10)).time()
-    if transition_start <= time < MORNING_PEAK_START:
-        delta = (datetime.datetime.combine(current_time.date(), MORNING_PEAK_START) -
+    # Transisi malam ke pagi (misal 10 menit sebelum PUNCAK_PAGI_MULAI)
+    transition_start = (datetime.datetime.combine(current_time.date(), puncak_pagi_start) - datetime.timedelta(minutes=10)).time()
+    if transition_start <= time < puncak_pagi_start:
+        delta = (datetime.datetime.combine(current_time.date(), puncak_pagi_start) -
                  datetime.datetime.combine(current_time.date(), time)).total_seconds() / 60
-        w_malam = delta / 10
+        w_malam = delta / 60
         w_pagi = 1 - w_malam
         return [(TimePeriod.MALAM, w_malam), (TimePeriod.PUNCAK_PAGI, w_pagi)]
-    # Default malam
+    # If none of the above, it's MALAM
     return [(TimePeriod.MALAM, 1.0)]
 
 
-def interpolate_occupancy(line: Line, direction: Direction, periods_weights: List[tuple[TimePeriod, float]]) -> int:
-    """
-    Mengambil data dari OCCUPANCY_MATRIX dan meratakannya berdasarkan bobot periods_weights.
-    Jika data tidak ada, fallback ke DEFAULT_OCCUPANCY.
-    """
-    occ_sum = 0.0
-    occ_matrix = OCCUPANCY_MATRIX.get(line)
-    if not occ_matrix:
-        return DEFAULT_OCCUPANCY
-    # Cek direction, fallback ke DUA_ARAH jika tidak ada
-    if direction not in occ_matrix:
-        if Direction.DUA_ARAH in occ_matrix:
-            occ_dir = occ_matrix[Direction.DUA_ARAH]
-        else:
-            return DEFAULT_OCCUPANCY
-    else:
-        occ_dir = occ_matrix[direction]
-    for period, weight in periods_weights:
-        occ = occ_dir.get(period, DEFAULT_OCCUPANCY)
-        occ_sum += occ * weight
-    occ_sum = max(MIN_OCCUPANCY, min(MAX_OCCUPANCY, occ_sum))
-    return int(round(occ_sum))
 
 
 # --- FUNGSI HITUNG TARIF UNTUK RUTE ---
@@ -302,6 +372,7 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     """
     Memprediksi okupansi untuk semua stasiun dalam rute kereta dengan interpolasi spasial
     yang disesuaikan dengan waktu dan arah perjalanan.
+    Menggunakan matriks okupansi dan profil spasial untuk prediksi yang lebih terstruktur.
     """
     occupancy_map = {}
     route = train.route
@@ -312,37 +383,74 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     line = get_line(route)
     direction = get_direction(route)
     periods_weights = get_adjacent_periods(current_time)
-    base_occupancy = interpolate_occupancy(line, direction, periods_weights)
 
-    n = len(route)
-    if n == 1:
-            occupancy_map[route[0]] = int(base_occupancy)
-            return occupancy_map
 
-    positions = np.linspace(0, 1, n)
-    is_puncak_pagi = any(p == TimePeriod.PUNCAK_PAGI for p, w in periods_weights)
-    is_puncak_sore = any(p == TimePeriod.PUNCAK_SORE for p, w in periods_weights)
-    is_menuju_jakarta = direction == Direction.MENUJU_JAKARTA
-    is_meninggalkan_jakarta = direction in [
-            Direction.MENUJU_BOGOR,
-            Direction.MENUJU_CIKARANG,
-            Direction.MENUJU_RANGKASBITUNG,
-            Direction.MENUJU_TANGERANG,
-        ]
-
-    if is_puncak_sore and is_meninggalkan_jakarta:
-            k_decay = 2.0
-            station_factors = np.exp(-k_decay * positions) * 0.9 + 0.15
-    elif is_puncak_pagi and is_menuju_jakarta:
-            k_growth = 3.0
-            station_factors = np.exp(-k_growth * (1 - positions)) * 0.9 + 0.1
-    else:
-            station_factors = 0.7 + 0.3 * np.sin(np.pi * positions)
-
-    for i, station in enumerate(route):
-            predicted_occ = min(100, base_occupancy * station_factors[i])
-            occupancy_map[station] = int(predicted_occ)
-            
+    is_puncak_pagi = any(p == TimePeriod.PUNCAK_PAGI for p in periods_weights)
+    is_puncak_sore = any(p == TimePeriod.PUNCAK_SORE for p in periods_weights)
+    is_akhir_pekan = any(p == TimePeriod.AKHIR_PEKAN for p in periods_weights)
+    # TODO
+    # Jam sibuk pagi 
+    # Okupansi KRL dari Bogor ke Jakarta Kota
+    # Dari Bogor - Bojong Gede (0-105%)
+    # Dari Citayam - Pasar Minggu (105%-115%)
+    # Dari Pasar Minggu Baru - Manggarai (115% - 120%)
+    # Dari Cikini - Jakarta Kota (80% menurun hingga 0%)
+    
+    if is_puncak_pagi and direction == Direction.DARI_BOGOR_MENUJU_JAKARTAKOTA:    
+        for i, route in enumerate(route):
+            occupancy_map[route] = int(-3.410605*10^-13 + 53.36605*i - 8.279928*i^2 + 0.524309 * i^3 - 0.1153014*i^4)
+    
+    # Jam sibuk sore
+    # Okupansi KRL dari Jakarta Kota ke Bogor
+    # Dari Jakarta Kota - Manggarai (0-120%)
+    # Dari Manggarai - Pasar Minggu Baru (120% menurun hingga 115%)
+    # Dari Pasar Minggu Baru - Citayam (115% menurun hingga 105%)
+    # Dari Citayam - Bogor (105% menurun hingga 0%)
+    
+    if is_puncak_sore and direction == Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR:
+        for i, route in enumerate(route):
+            occupancy_map[route] = int(6.82121*10^-13 + 56.58092 * i - 8.699259 * i^2 + 0.5364635 * i^3 - 0.01153014 * i^4)
+    
+    
+    
+    # Di luar jam sibuk yg di luar jam makan siang (08:30 - 12:00 & 14:00-15:30 & setelah jam 19:00)
+    # Okupansi KRL dari Jakarta Kota ke Bogor
+    # Dari Jakarta Kota - Manggarai (0% naik hingga 70%)
+    # Dari Manggarai - Pasar Minggu (70% turun hingga 65%)
+    # Dari Pasar Minggu - Citayam (65% turun hingga 40%)
+    # Dari Bojong Gede - Bogor (40% turun hingga 0%)
+    
+    for i, route in enumerate(route):
+        occupancy_map[route] = int(-1.136868*10^-13 + 25.82139 * i - 3.355988 * i^2 + 0.1825466 * i^3 - 0.003715035*i^4)
+    
+    # Di luar jam sibuk yg di dalam jam makan siang (12:00 - 14:00)
+    # Okupansi KRL dari Jakarta Kota ke Bogor
+    # Dari Jakarta Kota - Manggarai (0% naik hingga 75%)
+    # Dari Manggarai - Pasar Minggu (75% turun hingga 70%)
+    # Dari Pasar Minggu - Citayam (70% turun hingga 45%)
+    # Dari Bojong Gede - Bogor (45% hingga 0%)
+    
+    for i, route in enumerate(route):
+        occupancy_map[route] = int(-1.136868*10^-13 + 28.11143* i - 3.723141*i^2 + 0.2066267*i^3 - 0.004256161*i^4)
+    
+    # Di luar jam sibuk yg di luar jam makan siang (08:30 - 12:00 & 14:00-15:30 & setelah jam 19:00)
+    # Okupansi KRL dari Bogor - Jakarta Kota
+    # Dari Bogor - Bojong Gede (0-40%)
+    # Dari Citayam - Pasar Minggu (40-65%)
+    # Dari Pasar Minggu Baru - Manggarai (65%-70%)
+    # Dari Cikini - Jakarta Kota (40% menurun hingga 0%)
+    for i, route in enumerate(route):
+        occupancy_map[route] = int(5.684342*10^-14 + 19.65589 * i - 2.551792 * i^2 + 0.1592366* i^3 - 0.3715035*i^4)
+    
+    # Di luar jam sibuk yg di dalam jam makan siang (12:00 - 14:00)
+    # Okupansi KRL dari Bogor - Jakarta Kota
+    # Dari Bogor - Bojong Gede (0-45%)
+    # Dari Citayam - Pasar Minggu (45-70%)
+    # Dari Pasar Minggu Baru - Manggarai (70-75%)
+    # Dari Cikini - Jakarta Kota (45% menurun hingga 0%)
+    for i, route in enumerate(route):
+        occupancy_map[route] = int(-5.684342*10^-14 + 22.37531 * i - 2.974952 * i^2 + 0.1849401* i^3 - 0.004256161*i^4)
+    
     return occupancy_map
 
 
