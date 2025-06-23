@@ -387,6 +387,9 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
 
     is_puncak_pagi = any(p == TimePeriod.PUNCAK_PAGI for p in periods_weights)
     is_puncak_sore = any(p == TimePeriod.PUNCAK_SORE for p in periods_weights)
+    is_awal_siang = any(p == TimePeriod.AWAL_SIANG for p in periods_weights)
+    is_makan_siang = any(p == TimePeriod.MAKAN_SIANG for p in periods_weights)
+    is_akhir_siang = any(p == TimePeriod.AKHIR_SIANG for p in periods_weights)
     is_akhir_pekan = any(p == TimePeriod.AKHIR_PEKAN for p in periods_weights)
     # TODO
     # Jam sibuk pagi 
@@ -420,8 +423,9 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     # Dari Pasar Minggu - Citayam (65% turun hingga 40%)
     # Dari Bojong Gede - Bogor (40% turun hingga 0%)
     
-    for i, route in enumerate(route):
-        occupancy_map[route] = int(-1.136868*10^-13 + 25.82139 * i - 3.355988 * i^2 + 0.1825466 * i^3 - 0.003715035*i^4)
+    if is_puncak_sore and direction == Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR:
+        for i, route in enumerate(route):
+            occupancy_map[route] = int(-1.136868*10^-13 + 25.82139 * i - 3.355988 * i^2 + 0.1825466 * i^3 - 0.003715035*i^4)
     
     # Di luar jam sibuk yg di dalam jam makan siang (12:00 - 14:00)
     # Okupansi KRL dari Jakarta Kota ke Bogor
@@ -429,9 +433,9 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     # Dari Manggarai - Pasar Minggu (75% turun hingga 70%)
     # Dari Pasar Minggu - Citayam (70% turun hingga 45%)
     # Dari Bojong Gede - Bogor (45% hingga 0%)
-    
-    for i, route in enumerate(route):
-        occupancy_map[route] = int(-1.136868*10^-13 + 28.11143* i - 3.723141*i^2 + 0.2066267*i^3 - 0.004256161*i^4)
+    if is_makan_siang and direction == Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR:
+        for i, route in enumerate(route):
+            occupancy_map[route] = int(-1.136868*10^-13 + 28.11143* i - 3.723141*i^2 + 0.2066267*i^3 - 0.004256161*i^4)
     
     # Di luar jam sibuk yg di luar jam makan siang (08:30 - 12:00 & 14:00-15:30 & setelah jam 19:00)
     # Okupansi KRL dari Bogor - Jakarta Kota
@@ -439,8 +443,9 @@ def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
     # Dari Citayam - Pasar Minggu (40-65%)
     # Dari Pasar Minggu Baru - Manggarai (65%-70%)
     # Dari Cikini - Jakarta Kota (40% menurun hingga 0%)
-    for i, route in enumerate(route):
-        occupancy_map[route] = int(5.684342*10^-14 + 19.65589 * i - 2.551792 * i^2 + 0.1592366* i^3 - 0.3715035*i^4)
+    if (is_awal_siang or is_akhir_siang) and direction == Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR:
+        for i, route in enumerate(route):
+            occupancy_map[route] = int(5.684342*10^-14 + 19.65589 * i - 2.551792 * i^2 + 0.1592366* i^3 - 0.3715035*i^4)
     
     # Di luar jam sibuk yg di dalam jam makan siang (12:00 - 14:00)
     # Okupansi KRL dari Bogor - Jakarta Kota
