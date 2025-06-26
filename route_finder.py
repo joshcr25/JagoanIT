@@ -1,4 +1,5 @@
-# route_finder.py
+# Beberapa instans (tapi gk semua) yang dibantu Github Copilot dan Google Gemini
+# -- Awal Kutipan
 import collections
 import datetime
 import heapq
@@ -213,3 +214,5 @@ class RouteFinder:
             if len(filtered) >= self.max_result_count:
                 break
         return filtered
+
+# -- Akhir kutipan

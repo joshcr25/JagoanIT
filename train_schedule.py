@@ -1,4 +1,5 @@
-# train_schedule.py
+# Beberapa instans (tapi gk semua) yang dibantu Github Copilot dan Google Gemini
+# -- Awal Kutipan
 import csv
 import collections
 from typing import List, Dict, Set
@@ -257,3 +258,5 @@ class TrainSchedule:
     def get_fare_for_train(self, train: Train) -> int:
         """Mengembalikan tarif untuk kereta tertentu."""
         return calculate_fare(train.route, train.region)
+    
+# -- Akhir Kutipan
