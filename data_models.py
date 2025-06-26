@@ -8,13 +8,13 @@ from typing import List, Dict, Any
 class Region(Enum):
     """Merepresentasikan wilayah operasional KRL."""
     JABODETABEK = "Commuter Line Jabodetabek"
-    YOGYA_SOLO = "Commuter Line Yogyakarta-Solo"
+    YOGYA_SOLO = "Commuter Line Yogyakarta-Solo-Kutoarjo"
     RANGKASBITUNG_MERAK = "Commuter Line Rangkasbitung-Merak"
 
 @dataclass
 class Train:
     """Data class yang merepresentasikan satu kereta."""
-    id: str = ""
+    train_id: str = ""
     name: str = ""
     route: List[str] = field(default_factory=list)
     departure_times: Dict[str, str] = field(default_factory=dict)
