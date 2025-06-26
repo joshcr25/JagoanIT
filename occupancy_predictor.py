@@ -1150,3 +1150,558 @@ def get_cumulative_distance(route: List[str]) -> List[float]:
         distances.append(distances[-1] + dist)
 
     return distances
+
+
+# Occupancy Predictor v2
+import datetime
+from enum import Enum
+from typing import List, Dict
+import re
+import numpy as np
+import mlflow
+import pandas as pd
+from data_models import Train, Region # Pastikan Region diimpor dari data_models
+
+class Line(Enum):
+    BOGOR = 1
+    CIKARANG = 2
+    RANGKASBITUNG = 3
+    TANGERANG = 4
+    TANJUNG_PRIOK = 5
+    # Penambahan Line Baru
+    YOGYA_SOLO = 6
+    MERAK = 7
+    PRAMEKS = 8 # Line baru untuk Prambanan Ekspres
+    UNKNOWN = 9
+
+
+class Direction(Enum):
+    # ... (Enum yang sudah ada dari 1-46 tetap sama) ...
+    DARI_BOGOR_MENUJU_JAKARTAKOTA = 1
+    DARI_JAKARTAKOTA_MENUJU_BOGOR = 2
+    DARI_BEKASI_MENUJU_CIKARANG = 3
+    MENUJU_RANGKASBITUNG = 4
+    MENUJU_TANGERANG = 5
+    DUA_ARAH = 6
+    UNKNOWN = 7
+    DARI_BOGOR_MENUJU_DEPOK = 8
+    DARI_MANGGARAI_MENUJU_ANGKE = 9
+    MENUJU_KAMPUNGBANDAN = 10
+    MENUJU_NAMBO = 11
+    DARI_DEPOK_MENUJU_MANGGARAI = 12
+    MENUJU_TANAHABANG = 13
+    DARI_CIKARANG_MENUJU_BEKASI = 14
+    MENUJU_DURI = 15
+    DARI_BOGOR_MENUJU_MANGGARAI = 16
+    DARI_TANAH_ABANG_MENUJU_MANGGARAI = 17
+    DARI_MANGGARAI_MENUJU_BOGOR = 18
+    DARI_NAMBO_MENUJU_JAKARTAKOTA = 19
+    DARI_JAKARTAKOTA_MENUJU_NAMBO = 20
+    DARI_DURI_MENUJU_MANGGARAI = 21
+    DARI_BEKASI_MENUJU_ANGKE = 22
+    DARI_BEKASI_MENUJU_MANGGARAI = 23
+    DARI_BEKASI_MENUJU_KAMPUNG_BANDAN_MELALUI_PASAR_SENEN = 24
+    DARI_KAMPUNG_BANDAN_MENUJU_BEKASI_MELALUI_PASAR_SENEN = 25
+    DARI_KAMPUNG_BANDAN_MENUJU_CIKARANG_MELALUI_PASAR_SENEN = 26
+    DARI_CIKARANG_MENUJU_KAMPUNG_BANDAN_MELALUI_PASAR_SENEN = 27
+    DARI_ANGKE_MENUJU_MANGGARAI = 28
+    DARI_MANGGARAI_MENUJU_DURI = 29
+    DARI_CIKARANG_MENUJU_ANGKE_MELALUI_MANGGARAI = 30
+    DARI_ANGKE_MENUJU_CIKARANG_MELALUI_MANGGARAI = 31
+    DARI_BEKASI_MENUJU_ANGKE_MELALUI_MANGGARAI = 32
+    DARI_ANGKE_MENUJU_BEKASI_MELALUI_MANGGARAI = 33
+    DARI_CIKARANG_MENUJU_MANGGARAI = 34
+    DARI_RANGKASBITUNG_MENUJU_TANAHABANG = 35
+    DARI_TANAHABANG_MENUJU_RANGKASBITUNG = 36
+    DARI_TANGERANG_MENUJU_DURI = 37
+    DARI_DURI_MENUJU_TANGERANG = 38
+    DARI_JATINEGARA_MENUJU_BOGOR = 39
+    DARI_BOGOR_MENUJU_JATINEGARA = 40
+    DARI_MANGGARAI_MENUJU_CIKARANG = 41
+    DARI_CIKARANG_MENUJU_KAMPUNGBANDAN_MELALUI_MANGGARAI = 42
+    DARI_KAMPUNGBANDAN_MENUJU_CIKARANG_MELALUI_MANGGARAI = 43
+    DARI_BEKASI_MENUJU_KAMPUNGBANDAN_MELALUI_MANGGARAI = 44
+    DARI_KAMPUNGBANDAN_MENUJU_BEKASI_MELALUI_MANGGARAI = 45
+    MENUJU_ANGKE = 46
+
+    # --- Rute Wilayah VI & Merak ---
+    # KA Prameks
+    DARI_KUTOARJO_MENUJU_YOGYAKARTA = 47
+    DARI_YOGYAKARTA_MENUJU_KUTOARJO = 48
+    # KRL Yogya-Solo
+    DARI_YOGYAKARTA_MENUJU_PALUR = 49
+    DARI_PALUR_MENUJU_YOGYAKARTA = 50
+    # KA Lokal Merak
+    DARI_RANGKASBITUNG_MENUJU_MERAK = 51
+    DARI_MERAK_MENUJU_RANGKASBITUNG = 52
+
+
+class TimePeriod(Enum):
+    PUNCAK_PAGI = 1
+    PUNCAK_SORE = 2
+    MALAM = 3
+    AKHIR_PEKAN = 4
+    AWAL_SIANG = 5
+    MAKAN_SIANG = 6
+    AKHIR_SIANG = 7
+
+
+TIME_PERIOD_DEFINITIONS = {
+    TimePeriod.PUNCAK_PAGI: (datetime.time(6, 0), datetime.time(9, 0)),
+    TimePeriod.AWAL_SIANG: (datetime.time(9, 0), datetime.time(12, 0)),
+    TimePeriod.MAKAN_SIANG: (datetime.time(12, 0), datetime.time(14, 0)),
+    TimePeriod.AKHIR_SIANG: (datetime.time(14, 0), datetime.time(16, 0)),
+    TimePeriod.PUNCAK_SORE: (datetime.time(16, 0), datetime.time(19, 0)),
+}
+
+
+def normalize_station(name: str) -> str:
+    """Menghapus bagian dalam kurung dan mengubah ke huruf kecil."""
+    if not name:
+        return ""
+    return name.split('(')[0].strip().lower()
+
+
+def _direction_by_first_last(first: str, last: str) -> Direction:
+    # --- Rute Wilayah VI & Merak ---
+    # KA Prameks (Kutoarjo-Yogyakarta)
+    if "kutoarjo" in first and "yogyakarta" in last:
+        return Direction.DARI_KUTOARJO_MENUJU_YOGYAKARTA
+    if "yogyakarta" in first and "kutoarjo" in last:
+        return Direction.DARI_YOGYAKARTA_MENUJU_KUTOARJO
+        
+    # KRL (Yogyakarta-Palur/Solo)
+    if "yogyakarta" in first and ("palur" in last or "solo" in last):
+        return Direction.DARI_YOGYAKARTA_MENUJU_PALUR
+    if ("palur" in first or "solo" in first) and "yogyakarta" in last:
+        return Direction.DARI_PALUR_MENUJU_YOGYAKARTA
+
+    # KA Lokal (Rangkasbitung-Merak)
+    if "rangkasbitung" in first and "merak" in last:
+        return Direction.DARI_RANGKASBITUNG_MENUJU_MERAK
+    if "merak" in first and "rangkasbitung" in last:
+        return Direction.DARI_MERAK_MENUJU_RANGKASBITUNG
+
+    # --- Rute Jabodetabek (logika yang sudah ada) ---
+    if "jakarta kota" in first and "bogor" in last:
+        return Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR
+    if "bogor" in first and "jakarta kota" in last:
+        return Direction.DARI_BOGOR_MENUJU_JAKARTAKOTA
+    # ... (Tambahkan sisa kondisi Jabodetabek di sini) ...
+
+    return None
+
+def get_direction(route: List[str]) -> Direction:
+    """Menentukan arah kereta berdasarkan rutenya."""
+    if not route or len(route) < 2:
+        return Direction.UNKNOWN
+
+    first = normalize_station(route[0])
+    last = normalize_station(route[-1])
+
+    direction = _direction_by_first_last(first, last)
+    if direction:
+        return direction
+
+    return Direction.UNKNOWN
+
+
+def get_adjacent_periods(current_time: datetime.datetime) -> List[tuple[TimePeriod, float]]:
+    """Mendapatkan periode waktu saat ini."""
+    time = current_time.time()
+    weekday = current_time.weekday()
+
+    if weekday >= 5:  # Sabtu & Minggu
+        return [(TimePeriod.AKHIR_PEKAN, 1.0)]
+
+    for period, (start, end) in TIME_PERIOD_DEFINITIONS.items():
+        if start <= time < end:
+            return [(period, 1.0)]
+
+    return [(TimePeriod.MALAM, 1.0)]
+
+
+def _predict_internal(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
+    """Logika prediksi internal untuk okupansi kereta."""
+    occupancy_map = {}
+    route = train.route
+    if not route:
+        return occupancy_map
+
+    direction = get_direction(route)
+    periods_weights = get_adjacent_periods(current_time)
+    period = periods_weights[0][0] # Ambil periode utama
+
+    num_stations = len(route)
+    if num_stations == 0:
+        return {}
+
+    # --- Logika untuk KRL YOGYAKARTA-PALUR ---
+    if direction in [Direction.DARI_YOGYAKARTA_MENUJU_PALUR, Direction.DARI_PALUR_MENUJU_YOGYAKARTA]:
+        peak_occupancy = 0
+        base_occupancy = 0
+        
+        # Penumpang cenderung menuju Yogyakarta di pagi hari dan meninggalkan di sore hari
+        is_menuju_yogya = direction == Direction.DARI_PALUR_MENUJU_YOGYAKARTA
+
+        if period == TimePeriod.PUNCAK_PAGI and is_menuju_yogya:
+            peak_occupancy = 95
+            base_occupancy = 30
+        elif period == TimePeriod.PUNCAK_SORE and not is_menuju_yogya:
+             peak_occupancy = 95
+             base_occupancy = 30
+        elif period == TimePeriod.AKHIR_PEKAN:
+            peak_occupancy = 85
+            base_occupancy = 40
+        else: # Di luar jam sibuk
+            peak_occupancy = 65
+            base_occupancy = 25
+            
+        for i, station_name in enumerate(route):
+            # Model sederhana: Naik dari basis ke puncak di Yogyakarta, lalu turun
+            # Jika dari Palur, indeksnya dibalik
+            progress = (num_stations - 1 - i) if is_menuju_yogya else i
+            occ = base_occupancy + (peak_occupancy - base_occupancy) * (progress / (num_stations - 1) if num_stations > 1 else 1)
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+        return occupancy_map
+
+    # --- Logika untuk KA LOKAL PRAMEKS (KUTOARJO-YOGYAKARTA) ---
+    if direction in [Direction.DARI_KUTOARJO_MENUJU_YOGYAKARTA, Direction.DARI_YOGYAKARTA_MENUJU_KUTOARJO]:
+        start_occ, end_occ = 0, 0
+        if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+            start_occ, end_occ = 35, 75
+        elif period == TimePeriod.AKHIR_PEKAN:
+            start_occ, end_occ = 40, 65
+        else: # Di luar jam sibuk
+            start_occ, end_occ = 30, 50
+        
+        # Logika dibalik jika arahnya dari Yogyakarta
+        if direction == Direction.DARI_YOGYAKARTA_MENUJU_KUTOARJO:
+            start_occ, end_occ = end_occ, start_occ
+
+        for i, station_name in enumerate(route):
+            # Interpolasi linear sederhana dari stasiun awal ke akhir
+            occ = start_occ + (end_occ - start_occ) * (i / (num_stations - 1) if num_stations > 1 else 1)
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+        return occupancy_map
+
+    # --- Logika untuk Kereta Lokal RANGKASBITUNG-MERAK ---
+    if direction in [Direction.DARI_RANGKASBITUNG_MENUJU_MERAK, Direction.DARI_MERAK_MENUJU_RANGKASBITUNG]:
+        start_occ, end_occ = 0, 0
+        if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+            start_occ, end_occ = 40, 80
+        elif period == TimePeriod.AKHIR_PEKAN:
+            start_occ, end_occ = 35, 55
+        else: # Di luar jam sibuk
+            start_occ, end_occ = 30, 45
+        
+        if direction == Direction.DARI_MERAK_MENUJU_RANGKASBITUNG:
+            start_occ, end_occ = end_occ, start_occ
+
+        for i, station_name in enumerate(route):
+            occ = start_occ + (end_occ - start_occ) * (i / (num_stations - 1) if num_stations > 1 else 1)
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+        return occupancy_map
+
+    # --- (Logika yang sudah ada untuk Jabodetabek diletakkan di sini) ---
+    # Fallback untuk rute Jabodetabek yang belum memiliki logika spesifik
+    if not occupancy_map and route:
+        peak_occupancy = 65
+        if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+            peak_occupancy = 110
+        elif period == TimePeriod.AKHIR_PEKAN:
+            peak_occupancy = 85
+        
+        for i, station_name in enumerate(route):
+            n = num_stations - 1 if num_stations > 1 else 1
+            peak_idx = n // 2
+            if i <= peak_idx:
+                occ = 20 + (peak_occupancy - 20) * (i / peak_idx if peak_idx > 0 else 1)
+            else:
+                occ = peak_occupancy - (peak_occupancy - 20) * ((i - peak_idx) / (n - peak_idx) if n - peak_idx > 0 else 1)
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+
+    return occupancy_map
+
+def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
+    """Fungsi utama untuk memprediksi okupansi."""
+    return _predict_internal(train, current_time)
+
+# --- (Sisa fungsi seperti get_cumulative_distance, calculate_fare, dll. tetap sama) ---
+
+# Contoh penggunaan (untuk testing)
+if __name__ == '__main__':
+    # Simulasi waktu
+    waktu_puncak_pagi = datetime.datetime(2023, 10, 27, 7, 30) # Jumat pagi
+    waktu_luar_sibuk = datetime.datetime(2023, 10, 27, 11, 0) # Jumat siang
+    waktu_akhir_pekan = datetime.datetime(2023, 10, 28, 10, 0) # Sabtu pagi
+
+    # --- Rute Wilayah VI ---
+    rute_prameks = ["Kutoarjo", "Jenar", "Wojo", "Wates", "Yogyakarta"]
+    rute_krl_yogya_solo = ["Yogyakarta", "Lempuyangan", "Maguwo", "Brambanan", "Klaten", "Purwosari", "Solo Balapan", "Solo Jebres", "Palur"]
+    
+    kereta_prameks = Train(train_id="PRAMEKS1", route=rute_prameks)
+    kereta_krl_solo = Train(train_id="KRLSOLO1", route=rute_krl_yogya_solo)
+
+    print("--- Prediksi KA Prameks Kutoarjo-Yogyakarta (Puncak Pagi) ---")
+    okupansi_prameks = predict(kereta_prameks, waktu_puncak_pagi)
+    for stasiun, persen in okupansi_prameks.items():
+        print(f"{stasiun}: {persen}%")
+
+    print("\n--- Prediksi KRL Yogyakarta-Palur (Puncak Pagi) ---")
+    okupansi_krl = predict(kereta_krl_solo, waktu_puncak_pagi)
+    for stasiun, persen in okupansi_krl.items():
+        print(f"{stasiun}: {persen}%")
+
+    # --- Rute Merak ---
+    rute_rangkas_merak = ["Rangkasbitung", "Jambu Baru", "Catang", "Cikeusal", "Walantaka", "Serang", "Karangantu", "Tonjong Baru", "Cilegon", "Krenceng", "Merak"]
+    kereta_rangkas_merak = Train(train_id="RM1", route=rute_rangkas_merak)
+
+    print("\n--- Prediksi Kereta Lokal Rangkasbitung-Merak (Luar Jam Sibuk) ---")
+    okupansi_merak = predict(kereta_rangkas_merak, waktu_luar_sibuk)
+    for stasiun, persen in okupansi_merak.items():
+        print(f"{stasiun}: {persen}%")
+        
+# Okupansi Yogyakarta-Solo v2
+import datetime
+from enum import Enum
+from typing import List, Dict
+import numpy as np
+
+# --- DATA MODEL (DUMMY) ---
+# Kelas-kelas ini diasumsikan ada di file `data_models.py`.
+# Dibuat di sini agar skrip dapat berjalan mandiri untuk demonstrasi.
+class Region(Enum):
+    YOGYA_SOLO = 1
+    RANGKASBITUNG_MERAK = 2
+    JABODETABEK = 3
+
+class Train:
+    def __init__(self, train_id: str, route: List[str]):
+        self.train_id = train_id
+        self.route = route
+
+# --- ENUMERATIONS ---
+class Line(Enum):
+    BOGOR = 1
+    CIKARANG = 2
+    RANGKASBITUNG = 3
+    TANGERANG = 4
+    TANJUNG_PRIOK = 5
+    YOGYA_SOLO = 6
+    MERAK = 7
+    PRAMEKS = 8
+    UNKNOWN = 9
+
+class Direction(Enum):
+    # Rute Jabodetabek
+    DARI_BOGOR_MENUJU_JAKARTAKOTA = 1
+    DARI_JAKARTAKOTA_MENUJU_BOGOR = 2
+    # ... (Enum lainnya untuk Jabodetabek)
+    UNKNOWN = 7
+    # --- Rute Wilayah VI & Merak ---
+    DARI_KUTOARJO_MENUJU_YOGYAKARTA = 47
+    DARI_YOGYAKARTA_MENUJU_KUTOARJO = 48
+    DARI_YOGYAKARTA_MENUJU_PALUR = 49  # Palur mewakili Solo
+    DARI_PALUR_MENUJU_YOGYAKARTA = 50
+    DARI_RANGKASBITUNG_MENUJU_MERAK = 51
+    DARI_MERAK_MENUJU_RANGKASBITUNG = 52
+
+class TimePeriod(Enum):
+    PUNCAK_PAGI = 1
+    PUNCAK_SORE = 2
+    MALAM = 3
+    AKHIR_PEKAN = 4
+    AWAL_SIANG = 5
+    MAKAN_SIANG = 6
+    AKHIR_SIANG = 7
+
+# --- DEFINISI & FUNGSI UTILITAS ---
+TIME_PERIOD_DEFINITIONS = {
+    TimePeriod.PUNCAK_PAGI: (datetime.time(6, 0), datetime.time(9, 0)),
+    TimePeriod.AWAL_SIANG: (datetime.time(9, 0), datetime.time(12, 0)),
+    TimePeriod.MAKAN_SIANG: (datetime.time(12, 0), datetime.time(14, 0)),
+    TimePeriod.AKHIR_SIANG: (datetime.time(14, 0), datetime.time(16, 0)),
+    TimePeriod.PUNCAK_SORE: (datetime.time(16, 0), datetime.time(19, 0)),
+}
+
+def normalize_station(name: str) -> str:
+    """Menghapus bagian dalam kurung dan mengubah ke huruf kecil."""
+    if not name:
+        return ""
+    return name.split('(')[0].strip().lower()
+
+def _direction_by_first_last(first: str, last: str) -> Direction:
+    """Menentukan arah berdasarkan stasiun pertama dan terakhir."""
+    # KA Prameks (Kutoarjo-Yogyakarta)
+    if "kutoarjo" in first and "yogyakarta" in last:
+        return Direction.DARI_KUTOARJO_MENUJU_YOGYAKARTA
+    if "yogyakarta" in first and "kutoarjo" in last:
+        return Direction.DARI_YOGYAKARTA_MENUJU_KUTOARJO
+        
+    # KRL (Yogyakarta-Palur/Solo)
+    if "yogyakarta" in first and ("palur" in last or "solo" in last):
+        return Direction.DARI_YOGYAKARTA_MENUJU_PALUR
+    if ("palur" in first or "solo" in first) and "yogyakarta" in last:
+        return Direction.DARI_PALUR_MENUJU_YOGYAKARTA
+
+    # KA Lokal (Rangkasbitung-Merak)
+    if "rangkasbitung" in first and "merak" in last:
+        return Direction.DARI_RANGKASBITUNG_MENUJU_MERAK
+    if "merak" in first and "rangkasbitung" in last:
+        return Direction.DARI_MERAK_MENUJU_RANGKASBITUNG
+
+    # Jabodetabek
+    if "jakarta kota" in first and "bogor" in last:
+        return Direction.DARI_JAKARTAKOTA_MENUJU_BOGOR
+    if "bogor" in first and "jakarta kota" in last:
+        return Direction.DARI_BOGOR_MENUJU_JAKARTAKOTA
+    
+    return Direction.UNKNOWN
+
+def get_direction(route: List[str]) -> Direction:
+    """Mendapatkan arah perjalanan dari sebuah rute."""
+    if not route or len(route) < 2:
+        return Direction.UNKNOWN
+    first = normalize_station(route[0])
+    last = normalize_station(route[-1])
+    return _direction_by_first_last(first, last)
+
+def get_adjacent_periods(current_time: datetime.datetime) -> List[tuple[TimePeriod, float]]:
+    """Mendapatkan periode waktu saat ini."""
+    time = current_time.time()
+    weekday = current_time.weekday()
+
+    if weekday >= 5:  # Sabtu & Minggu
+        return [(TimePeriod.AKHIR_PEKAN, 1.0)]
+
+    for period, (start, end) in TIME_PERIOD_DEFINITIONS.items():
+        if start <= time < end:
+            return [(period, 1.0)]
+
+    return [(TimePeriod.MALAM, 1.0)]
+
+
+def _predict_internal(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
+    """Logika prediksi internal untuk okupansi kereta."""
+    occupancy_map = {}
+    route = train.route
+    if not route:
+        return occupancy_map
+
+    direction = get_direction(route)
+    periods_weights = get_adjacent_periods(current_time)
+    period = periods_weights[0][0] 
+
+    num_stations = len(route)
+    if num_stations == 0:
+        return {}
+
+    # --- Logika untuk KRL YOGYAKARTA-SOLO & PRAMEKS (Kutoarjo-Yogyakarta) ---
+    is_yogya_route = direction in [
+        Direction.DARI_YOGYAKARTA_MENUJU_PALUR, Direction.DARI_PALUR_MENUJU_YOGYAKARTA,
+        Direction.DARI_KUTOARJO_MENUJU_YOGYAKARTA, Direction.DARI_YOGYAKARTA_MENUJU_KUTOARJO
+    ]
+    is_merak_route = direction in [
+        Direction.DARI_RANGKASBITUNG_MENUJU_MERAK, Direction.DARI_MERAK_MENUJU_RANGKASBITUNG
+    ]
+
+    if is_yogya_route or is_merak_route:
+        peak_occupancy = 0
+        base_occupancy = 0
+
+        # Tentukan nilai okupansi puncak dan dasar berdasarkan rute dan waktu
+        if is_yogya_route:
+            is_krl_solo = direction in [Direction.DARI_YOGYAKARTA_MENUJU_PALUR, Direction.DARI_PALUR_MENUJU_YOGYAKARTA]
+            if is_krl_solo:
+                # KRL Yogya-Solo
+                if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+                    peak_occupancy, base_occupancy = 95, 30
+                elif period == TimePeriod.AKHIR_PEKAN:
+                    peak_occupancy, base_occupancy = 85, 40
+                else:
+                    peak_occupancy, base_occupancy = 65, 25
+            else:
+                # Prameks Kutoarjo-Yogya
+                if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+                    peak_occupancy, base_occupancy = 75, 35
+                elif period == TimePeriod.AKHIR_PEKAN:
+                    peak_occupancy, base_occupancy = 65, 40
+                else:
+                    peak_occupancy, base_occupancy = 50, 30
+        elif is_merak_route:
+            # KA Lokal Rangkasbitung-Merak
+            if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+                peak_occupancy, base_occupancy = 80, 40
+            elif period == TimePeriod.AKHIR_PEKAN:
+                peak_occupancy, base_occupancy = 55, 35
+            else:
+                peak_occupancy, base_occupancy = 45, 30
+
+        # === LOGIKA PARABOLA YANG DIPERBAIKI ===
+        # Menghitung okupansi dengan kurva parabola.
+        # Okupansi tertinggi (peak) di tengah, terendah (base) di ujung.
+        n = num_stations - 1 if num_stations > 1 else 1
+        for i, station_name in enumerate(route):
+            x = i / n if n > 0 else 0  # Normalisasi posisi stasiun (0.0 to 1.0)
+            # Rumus parabola: occ = base + (peak - base) * (1 - 4 * (x - 0.5)^2)
+            parabolic_factor = 1 - 4 * (x - 0.5) ** 2
+            occ = base_occupancy + (peak_occupancy - base_occupancy) * parabolic_factor
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+        return occupancy_map
+
+    # Fallback untuk rute lain (misal: Jabodetabek)
+    if not occupancy_map and route:
+        peak_occupancy = 65
+        if period in [TimePeriod.PUNCAK_PAGI, TimePeriod.PUNCAK_SORE]:
+            peak_occupancy = 110
+        elif period == TimePeriod.AKHIR_PEKAN:
+            peak_occupancy = 85
+        
+        for i, station_name in enumerate(route):
+            # Model segitiga sederhana untuk fallback
+            n = num_stations - 1 if num_stations > 1 else 1
+            peak_idx = n // 2
+            if i <= peak_idx:
+                occ = 20 + (peak_occupancy - 20) * (i / peak_idx if peak_idx > 0 else 1)
+            else:
+                occ = peak_occupancy - (peak_occupancy - 20) * ((i - peak_idx) / (n - peak_idx) if n - peak_idx > 0 else 1)
+            occupancy_map[station_name] = int(max(0, min(200, occ)))
+
+    return occupancy_map
+
+def predict(train: Train, current_time: datetime.datetime) -> Dict[str, int]:
+    """Fungsi utama untuk memprediksi okupansi."""
+    return _predict_internal(train, current_time)
+
+# --- CONTOH PENGGUNAAN ---
+if __name__ == '__main__':
+    # Simulasi waktu
+    waktu_puncak_pagi = datetime.datetime(2023, 10, 27, 7, 30)
+    waktu_luar_sibuk = datetime.datetime(2023, 10, 27, 11, 0)
+    waktu_akhir_pekan = datetime.datetime(2023, 10, 28, 10, 0)
+
+    # Rute Kutoarjo -> Yogyakarta -> Solo (diwakili Palur)
+    # Untuk tujuan demonstrasi, kita gabungkan rute Prameks dan KRL
+    rute_kutoarjo_solo = ["Kutoarjo", "Jenar", "Wojo", "Wates", "Yogyakarta", "Lempuyangan", "Maguwo", "Klaten", "Purwosari", "Solo Balapan", "Palur"]
+    kereta_kutoarjo_solo = Train(train_id="KTSOLO1", route=rute_kutoarjo_solo)
+    
+    # Rute Rangkasbitung -> Merak
+    rute_rangkas_merak = ["Rangkasbitung", "Jambu Baru", "Catang", "Cikeusal", "Walantaka", "Serang", "Karangantu", "Cilegon", "Krenceng", "Merak"]
+    kereta_rangkas_merak = Train(train_id="RM1", route=rute_rangkas_merak)
+
+    # Menggunakan arah Yogyakarta -> Palur untuk KRL Solo
+    # karena rute gabungan ini tidak ada di enum `Direction`
+    kereta_kutoarjo_solo.direction_for_logic = Direction.DARI_YOGYAKARTA_MENUJU_PALUR 
+
+    print("--- Prediksi Rute Kutoarjo-Solo (Puncak Pagi) ---")
+    print("Menggunakan logika KRL Yogya-Solo untuk okupansi.")
+    okupansi_krl = predict(kereta_kutoarjo_solo, waktu_puncak_pagi)
+    for stasiun, persen in okupansi_krl.items():
+        print(f"{stasiun:<20}: {'#' * (persen // 4)}{' ' * (25 - persen//4)} ({persen}%)")
+
+    print("\n--- Prediksi Rute Rangkasbitung-Merak (Akhir Pekan) ---")
+    okupansi_merak = predict(kereta_rangkas_merak, waktu_akhir_pekan)
+    for stasiun, persen in okupansi_merak.items():
+        print(f"{stasiun:<20}: {'#' * (persen // 4)}{' ' * (25 - persen//4)} ({persen}%)")
+
