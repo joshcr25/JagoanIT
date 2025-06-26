@@ -1,4 +1,5 @@
-# main.py
+# Beberapa instans (tapi gk semua) yang dibantu Github Copilot dan Google Gemini
+# -- Awal Kutipan
 
 import tkinter as tk
 from tkinter import messagebox
@@ -54,3 +55,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+# -- Akhir Kutipan

@@ -1,3 +1,6 @@
+# Beberapa instans (tapi gk semua) yang dibantu Github Copilot dan Google Gemini
+# -- Awal Kutipan
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import datetime
@@ -346,3 +349,4 @@ class AppGUI(tk.Tk):
 
         self.result_text.config(state=tk.DISABLED)
 
+# -- Akhir Kutipan

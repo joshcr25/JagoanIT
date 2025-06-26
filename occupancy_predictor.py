@@ -1,3 +1,6 @@
+# Beberapa instans (tapi gk semua) yang dibantu Github Copilot dan Google Gemini
+# -- Awal Kutipan
+
 import datetime
 from enum import Enum
 from typing import List, Dict
@@ -5,6 +8,7 @@ import re
 import numpy as np
 import mlflow
 import pandas as pd
+
 from data_models import Train
 # Tambahkan import Region jika perlu
 from data_models import Region
@@ -20,6 +24,7 @@ class Line(Enum):
 
 
 class Direction(Enum):
+    
     # Rute Eksisting
     DARI_BOGOR_MENUJU_JAKARTAKOTA = 1
     DARI_JAKARTAKOTA_MENUJU_BOGOR = 2
@@ -51,6 +56,7 @@ class Direction(Enum):
     DARI_ANGKE_MENUJU_MANGGARAI = 28
     DARI_MANGGARAI_MENUJU_DURI = 29
 
+    
     # Rute Tambahan Sesi 1
     DARI_CIKARANG_MENUJU_ANGKE_MELALUI_MANGGARAI = 30
     DARI_ANGKE_MENUJU_CIKARANG_MELALUI_MANGGARAI = 31
@@ -72,6 +78,7 @@ class Direction(Enum):
     DARI_KAMPUNGBANDAN_MENUJU_BEKASI_MELALUI_MANGGARAI = 45
     MENUJU_ANGKE = 46
     # ------------------------------------
+    # -- Ini akhir dari kutipan Gemini
 
 
 class TimePeriod(Enum):
@@ -1704,4 +1711,6 @@ if __name__ == '__main__':
     okupansi_merak = predict(kereta_rangkas_merak, waktu_akhir_pekan)
     for stasiun, persen in okupansi_merak.items():
         print(f"{stasiun:<20}: {'#' * (persen // 4)}{' ' * (25 - persen//4)} ({persen}%)")
+        
 
+# -- Akhir Kutipan
