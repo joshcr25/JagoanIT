@@ -30,7 +30,14 @@ class RouteFinder:
 
     @staticmethod
     def show_map_image(image_path: str):
-        # ... (Tidak ada perubahan di sini)
+        new_window = tk.Toplevel() # 'root' is your main Tkinter window
+        new_window.title("Rute KRL Jabodetabek")
+        original_image = Image.open(image_path)
+        tk_image = ImageTk.PhotoImage(original_image)
+        image_label = tk.Label(new_window, image=tk_image)
+        image_label.pack()
+        image_label.image = tk_image  # Store a reference to the image
+        new_window.mainloop() # Only if it's a completely independent window
         pass
 
     # --- UBAH SIGNATURE find_routes ---
@@ -52,11 +59,33 @@ class RouteFinder:
         results = []
         max_transits = 2 if region == Region.JABODETABEK else 1
 
+        occupancy_cache = {}  # Tambahkan cache prediksi okupansi
+
         while queue and len(results) < self.max_result_count:
             __, node = heapq.heappop(queue)
             trains_at_station = self.schedule.get_trains_for_station(node.station, region)
-            self._process_trains(trains_at_station, node, dest_station, max_transits, visited, queue, results)
-        
+            for train in trains_at_station:
+                try:
+                    current_idx = train.route.index(node.station)
+                except ValueError:
+                    continue
+
+                # --- Cek cache sebelum memanggil predictor.predict ---
+                cache_key = (train.train_id, node.time)
+                if cache_key in occupancy_cache:
+                    predicted_occupancies = occupancy_cache[cache_key]
+                else:
+                    predicted_occupancies = predictor.predict(train, node.time, log_model=False)
+                    occupancy_cache[cache_key] = predicted_occupancies
+                # ----------------------------------------------------
+
+                self._process_train_legs(
+                    train, current_idx, node, dest_station, max_transits,
+                    visited, queue, results, predicted_occupancies
+                )
+
+                if len(results) >= self.max_result_count:
+                    break
         results = self._sort_and_filter_results(results)
         return results[:self.max_result_count]
 
@@ -86,7 +115,7 @@ class RouteFinder:
             if not self._is_leg_time_and_transit_valid(node, dep_time, arr_time, train, max_transits):
                 continue
 
-            is_different_train = not node.route or train.id != node.route[-1]['train_id']
+            is_different_train = not node.route or train.train_id != node.route[-1]['train_id']
             next_transit_count = node.transit + 1 if is_different_train and node.route else node.transit
             visit_key = (next_station, next_transit_count)
             if self._should_skip_visit(visit_key, visited, arr_time):
@@ -101,7 +130,7 @@ class RouteFinder:
     def _is_leg_time_and_transit_valid(self, node, dep_time, arr_time, train, max_transits):
         if not self._is_time_valid(node.time, dep_time, arr_time):
             return False
-        is_different_train = not node.route or train.id != node.route[-1]['train_id']
+        is_different_train = not node.route or train.train_id != node.route[-1]['train_id']
         next_transit_count = node.transit + 1 if is_different_train and node.route else node.transit
         if next_transit_count > max_transits:
             return False
@@ -154,7 +183,7 @@ class RouteFinder:
 
     def _create_leg(self, train, node, next_station, dep_time, arr_time, predicted_occupancies):
         return {
-            "train_id": train.id, "train_name": train.name,
+            "train_id": train.train_id, "train_name": train.name,
             "start_station": node.station, "destination_station": next_station,
             "departure_time": dep_time.strftime("%H:%M"),
             "estimated_arrival": arr_time.strftime("%H:%M"),
