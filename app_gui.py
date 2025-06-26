@@ -223,9 +223,20 @@ class AppGUI(tk.Tk):
     # --- FUNGSI BARU UNTUK MENANGANI KLIK TOMBOL PETA ---
     def _show_map_clicked(self):
         """Menangani klik pada tombol lihat peta."""
-        # Nama file peta sudah ditentukan dalam proyek
-        map_file = "Rute-KRL-1.png"
-        self.app_logic.show_map_image(map_file)
+        # Pilih file peta sesuai region yang dipilih
+        region_enum = self.regions[self.selected_region.get()]
+        map_files = {
+            Region.JABODETABEK: "Rute-KRL-Jabodetabek.png",
+            Region.YOGYA_SOLO: "Rute-KRL-YogyakartaSoloKutoarjo.png",
+            Region.RANGKASBITUNG_MERAK: "Rute-KRL-Jabodetabek.png"
+            # Tambahkan region dan file peta lain jika ada
+        }
+        map_file = map_files.get(region_enum)
+        if map_file:
+            self.app_logic.show_map_image(map_file)
+        else:
+            from tkinter import messagebox
+            messagebox.showinfo("Peta Tidak Tersedia", "Peta untuk wilayah ini belum tersedia.")
     # ----------------------------------------------------
 
     def _on_region_selected(self, event=None):
@@ -301,7 +312,7 @@ class AppGUI(tk.Tk):
                     if train_obj is None and hasattr(self.app_logic.schedule, "station_to_trains_map"):
                         trains = self.app_logic.schedule.station_to_trains_map.get(route[0]['start_station'], [])
                         for t in trains:
-                            if t.id == route[0]['train_id']:
+                            if t.train_id == route[0]['train_id']:
                                 train_obj = t
                                 break
                     if train_obj:
