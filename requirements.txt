@@ -1,2 +1,4 @@
-Requirements:
+Python library yang perlu di-install:
 mlflow
+pandas
+numpy
