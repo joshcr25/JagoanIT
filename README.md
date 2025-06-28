@@ -8,3 +8,9 @@ Sumber:
 https://commuterline.id/perjalanan-krl/jadwal-kereta
 https://commuterline.id/files/download/documents/Jadwal%20Commuter%20Line%20Yogyakarta%20-%20Prameks.pdf
 https://commuterline.id/files/download/documents/Commuter%20Line%20Merak%20-Mulai%201%20Februari%202025-.pdf
+
+Cara install mlflow
+1. Buka terminal atau command prompt
+2. Jalankan pip install mlflow
+3. Jika ada masalah penginstalan library Python di Mac OS lakukanlah: pip3 install mlflow
+4. Verifikasi penginstalan dengan mengetik mlflow --version lalu tekan Enter. Itu seharusnya menampilkan versi MLflow yang di-install.
