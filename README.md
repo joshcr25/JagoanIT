@@ -11,6 +11,6 @@ https://commuterline.id/files/download/documents/Commuter%20Line%20Merak%20-Mula
 
 Cara install mlflow
 1. Buka terminal atau command prompt
-2. Jalankan pip install mlflow
-3. Jika ada masalah penginstalan library Python di Mac OS lakukanlah: pip3 install mlflow
-4. Verifikasi penginstalan dengan mengetik mlflow --version lalu tekan Enter. Itu seharusnya menampilkan versi MLflow yang di-install.
+2. Jalankan <code>pip install mlflow</code>
+3. Jika ada masalah penginstalan library Python di Mac OS lakukanlah: <code>pip3 install mlflow</code>
+4. Verifikasi penginstalan dengan mengetik <code>mlflow --version</code> lalu tekan Enter. Itu seharusnya menampilkan versi MLflow yang di-install.
