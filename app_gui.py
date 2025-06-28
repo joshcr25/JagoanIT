@@ -21,9 +21,9 @@ class Tooltip:
         self.widget.bind("<Leave>", self.hide_tooltip)
 
     def show_tooltip(self, event):
-        x, y, _, _ = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + 25
-        y += self.widget.winfo_rooty() + 25
+        # Gunakan posisi mouse dari event agar kompatibel dengan ttk widget
+        x = event.x_root + 20
+        y = event.y_root + 10
 
         self.tooltip_window = tk.Toplevel(self.widget)
         self.tooltip_window.wm_overrideredirect(True)
@@ -32,7 +32,7 @@ class Tooltip:
         label = tk.Label(self.tooltip_window, text=self.text, justify='left',
                          background="#ffffe0", relief='solid', borderwidth=1,
                          font=("Arial", 10, "normal"),
-                         fg="#000") # Set text color for tooltip
+                         fg="#000")
         label.pack(ipadx=1)
 
     def hide_tooltip(self, event):
@@ -176,17 +176,23 @@ class AppGUI(tk.Tk):
         )
         self.region_cb.grid(row=0, column=1, padx=(0, 5), pady=5, sticky="ew")
         self.region_cb.bind("<<ComboboxSelected>>", self._on_region_selected)
+        # Tooltip untuk region combobox
+        Tooltip(self.region_cb, "Pilih wilayah operasi KRL.")
 
         # --- TOMBOL BARU UNTUK MELIHAT PETA ---
         map_button = ttk.Button(
             top_frame, text="Lihat Peta Rute", command=self._show_map_clicked)
         map_button.grid(row=0, column=2, padx=(10, 5), pady=5, sticky="e")
+        # Tooltip untuk tombol peta
+        Tooltip(map_button, "Klik untuk melihat peta rute KRL.")
         # ------------------------------------
 
         # Tombol Cari
         search_button = ttk.Button(main_frame, text="Cari Rute Terbaik",
                                    command=self._find_route_clicked, style="Accent.TButton")
         search_button.pack(pady=10, fill=tk.X, padx=5)
+        # Tooltip untuk tombol cari
+        Tooltip(search_button, "Cari rute KRL terbaik berdasarkan input.")
 
         # --- FRAME INPUT PENCARIAN ---
         input_frame = ttk.LabelFrame(main_frame, text="Pencarian Rute")
@@ -197,24 +203,27 @@ class AppGUI(tk.Tk):
         ttk.Label(input_frame, text="Dari Stasiun:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.from_station_cb = ttk.Combobox(input_frame, state="readonly")
         self.from_station_cb.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        Tooltip(self.from_station_cb, "Pilih stasiun keberangkatan.")
 
         # Stasiun Tujuan
         ttk.Label(input_frame, text="Ke Stasiun:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.to_station_cb = ttk.Combobox(input_frame, state="readonly")
         self.to_station_cb.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        Tooltip(self.to_station_cb, "Pilih stasiun tujuan.")
 
         # --- WIDGET TANGGAL DAN WAKTU ---
         ttk.Label(input_frame, text="Tanggal Berangkat:").grid(
             row=2, column=0, padx=5, pady=5, sticky="w")
         self.date_entry = ttk.Entry(input_frame)
         self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        Tooltip(self.date_entry, "Masukkan tanggal berangkat (YYYY-MM-DD).")
         
 
         ttk.Label(input_frame, text="Jam Berangkat:").grid(
             row=3, column=0, padx=5, pady=5, sticky="w")
         self.time_entry = ttk.Entry(input_frame)
         self.time_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
-        
+        Tooltip(self.time_entry, "Masukkan jam berangkat (HH:MM, 24 jam).")
 
         # Frame Hasil
         result_frame = ttk.LabelFrame(main_frame, text="Hasil Rute")
@@ -222,6 +231,24 @@ class AppGUI(tk.Tk):
         self.result_text = tk.Text(
             result_frame, wrap=tk.WORD, height=15, state=tk.DISABLED, font=("Arial", 10), fg="#000")
         self.result_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # --- CHATBOT FRAME ---
+        chatbot_frame = ttk.LabelFrame(main_frame, text="Chatbot Stasiun")
+        chatbot_frame.pack(fill=tk.X, padx=5, pady=(0,5))
+        chatbot_frame.columnconfigure(0, weight=1)
+
+        self.chatbot_history = tk.Text(chatbot_frame, height=6, state=tk.DISABLED, font=("Arial", 10), fg="#000")
+        self.chatbot_history.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=2)
+
+        self.chatbot_entry = ttk.Entry(chatbot_frame)
+        self.chatbot_entry.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
+        self.chatbot_entry.bind("<Return>", self._on_chatbot_ask)
+
+        ask_btn = ttk.Button(chatbot_frame, text="Tanya", command=self._on_chatbot_ask)
+        ask_btn.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+        Tooltip(self.chatbot_entry, "Tulis pertanyaan tentang lokasi stasiun, misal: dimana stasiun Universitas Indonesia")
+        Tooltip(ask_btn, "Klik untuk bertanya ke chatbot.")
+        # --- END CHATBOT FRAME ---
 
     # --- FUNGSI BARU UNTUK MENANGANI KLIK TOMBOL PETA ---
     def _show_map_clicked(self):
@@ -348,5 +375,73 @@ class AppGUI(tk.Tk):
                     self.result_text.insert(tk.END, details)
 
         self.result_text.config(state=tk.DISABLED)
+
+    def _on_station_cb_motion(self, event):
+        cb = event.widget
+        try:
+            popdown = cb.tk.call("ttk::combobox::PopdownWindow", cb._w)
+            listbox = cb.nametowidget(popdown + ".f.l")
+            y = listbox.winfo_pointery() - listbox.winfo_rooty()
+            idx = listbox.nearest(y)
+            values = cb['values']
+            if idx < 0 or idx >= len(values):
+                self._on_station_cb_leave(event)
+                return
+            station = values[idx]
+            if self._dropdown_tooltip_last_station == (cb, station):
+                return
+            self._dropdown_tooltip_last_station = (cb, station)
+            # Hapus tooltip lama jika ada
+            if self._dropdown_tooltip:
+                self._dropdown_tooltip.hide_tooltip(event)
+                self._dropdown_tooltip = None
+            # Tampilkan tooltip alamat
+            info = self.station_info.get(station)
+            if info:
+                text = f"{station}\n{info['address']}\nElevasi: {info['elevation']}"
+                # Simpan instance tooltip agar bisa dihapus nanti
+                self._dropdown_tooltip = Tooltip(listbox, text)
+                self._dropdown_tooltip.show_tooltip(event)
+                # Pastikan tooltip hilang saat dropdown kehilangan fokus
+                listbox.bind("<FocusOut>", self._on_station_cb_leave, add="+")
+        except Exception:
+            self._on_station_cb_leave(event)
+
+    def _on_station_cb_leave(self, event):
+        if self._dropdown_tooltip:
+            self._dropdown_tooltip.hide_tooltip(event)
+            self._dropdown_tooltip = None
+        self._dropdown_tooltip_last_station = None
+
+    def _on_chatbot_ask(self, event=None):
+        user_msg = self.chatbot_entry.get().strip()
+        if not user_msg:
+            return
+        self._append_chatbot("Anda", user_msg)
+        response = self._chatbot_response(user_msg)
+        self._append_chatbot("Bot", response)
+        self.chatbot_entry.delete(0, tk.END)
+
+    def _append_chatbot(self, sender, msg):
+        self.chatbot_history.config(state=tk.NORMAL)
+        self.chatbot_history.insert(tk.END, f"{sender}: {msg}\n")
+        self.chatbot_history.see(tk.END)
+        self.chatbot_history.config(state=tk.DISABLED)
+
+    def _chatbot_response(self, msg):
+        # Sederhana: deteksi pola "dimana stasiun <nama>"
+        import re
+        pattern = r"dimana\s+stasiun\s+(.+)"
+        match = re.search(pattern, msg.lower())
+        if match:
+            # Cari nama stasiun yang cocok (case-insensitive)
+            asked = match.group(1).strip()
+            # Coba cari stasiun yang cocok
+            for station in self.station_info:
+                if asked in station.lower():
+                    info = self.station_info[station]
+                    return f"{station} terletak di {info['address']} (Elevasi: {info['elevation']})"
+            return "Maaf, saya tidak menemukan informasi stasiun tersebut."
+        return "Silakan tanyakan lokasi stasiun dengan format: dimana stasiun <nama stasiun>"
 
 # -- Akhir Kutipan
