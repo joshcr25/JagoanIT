@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-1bca07f4d2654939980995d7bf7aa7cf/artifacts
+creation_timestamp: 1750932886041
+experiment_id: '0'
+last_updated_timestamp: 1750932889687
+model_id: m-1bca07f4d2654939980995d7bf7aa7cf
+model_type: null
+name: occupancy_predictor_model_Cikarang-Angke_weekend
+source_run_id: 87d4bdfffa404b7eb6d2b97768f6e6b1
+status: 2
+status_message: null

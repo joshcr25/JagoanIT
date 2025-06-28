@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-a6fc0d6058dc4049aef7b93e52f1c018/artifacts
+creation_timestamp: 1750942286066
+experiment_id: '0'
+last_updated_timestamp: 1750942289915
+model_id: m-a6fc0d6058dc4049aef7b93e52f1c018
+model_type: null
+name: occupancy_predictor_model_RANGKAS_MERAK_weekend
+source_run_id: e69a7acd882045f1b0bb75b8b663fce9
+status: 2
+status_message: null

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-45c35f5aa3da401c8c2fdd43f571abb0/artifacts
+creation_timestamp: 1750932583584
+experiment_id: '0'
+last_updated_timestamp: 1750932587095
+model_id: m-45c35f5aa3da401c8c2fdd43f571abb0
+model_type: null
+name: occupancy_predictor_model_Rangkasbitung-Tanah Abang_weekend
+source_run_id: 227bee4f9670417fad8acef4a9a3e0b4
+status: 2
+status_message: null

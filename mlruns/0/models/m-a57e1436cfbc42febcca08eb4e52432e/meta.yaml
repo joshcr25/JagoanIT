@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-a57e1436cfbc42febcca08eb4e52432e/artifacts
+creation_timestamp: 1750931237462
+experiment_id: '0'
+last_updated_timestamp: 1750931240819
+model_id: m-a57e1436cfbc42febcca08eb4e52432e
+model_type: null
+name: occupancy_predictor_model  2025-06-16 180000
+source_run_id: 4aa8b37270a4435596333dfd114e05a4
+status: 2
+status_message: null

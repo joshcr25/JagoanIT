@@ -1,0 +1,19 @@
+artifact_path: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-c2b2e79c7d104213b1a9b617b59178b7/artifacts
+flavors:
+  python_function:
+    cloudpickle_version: 3.1.1
+    code: null
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.13.1
+    streamable: false
+mlflow_version: 3.1.1
+model_id: m-c2b2e79c7d104213b1a9b617b59178b7
+model_size_bytes: 193
+model_uuid: m-c2b2e79c7d104213b1a9b617b59178b7
+prompts: null
+run_id: cbb8383ac00444e681e1a14f5512bd54
+utc_time_created: '2025-06-26 09:36:29.207774'

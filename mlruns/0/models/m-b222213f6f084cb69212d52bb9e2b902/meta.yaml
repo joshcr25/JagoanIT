@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-b222213f6f084cb69212d52bb9e2b902/artifacts
+creation_timestamp: 1750942244464
+experiment_id: '0'
+last_updated_timestamp: 1750942248280
+model_id: m-b222213f6f084cb69212d52bb9e2b902
+model_type: null
+name: occupancy_predictor_model_KRL_YOGYA_SOLO_weekend
+source_run_id: f17f1806d8cc428a99229d3adaa1ac2f
+status: 2
+status_message: null

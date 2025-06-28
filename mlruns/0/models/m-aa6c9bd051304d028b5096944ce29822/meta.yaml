@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-aa6c9bd051304d028b5096944ce29822/artifacts
+creation_timestamp: 1750942257778
+experiment_id: '0'
+last_updated_timestamp: 1750942261463
+model_id: m-aa6c9bd051304d028b5096944ce29822
+model_type: null
+name: occupancy_predictor_model_PRAMEKS_offpeak_noon
+source_run_id: 0f57dae6f754464c8830c7fad8239c04
+status: 2
+status_message: null

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-c82f3d37c96a4cad9e6ec51b063707a6/artifacts
+creation_timestamp: 1750932736523
+experiment_id: '0'
+last_updated_timestamp: 1750932740143
+model_id: m-c82f3d37c96a4cad9e6ec51b063707a6
+model_type: null
+name: occupancy_predictor_model_Jatinegara-Cikarang_offpeak_noon
+source_run_id: d95f87498a8347b6a08ae7d18ec6a89e
+status: 2
+status_message: null

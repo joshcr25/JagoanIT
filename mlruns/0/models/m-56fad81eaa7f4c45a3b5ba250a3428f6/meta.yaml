@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-56fad81eaa7f4c45a3b5ba250a3428f6/artifacts
+creation_timestamp: 1750932705889
+experiment_id: '0'
+last_updated_timestamp: 1750932709402
+model_id: m-56fad81eaa7f4c45a3b5ba250a3428f6
+model_type: null
+name: occupancy_predictor_model_Tangerang-Duri_offpeak_noon
+source_run_id: b57293cbc62d4418b17d21dfdc28ca02
+status: 2
+status_message: null

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-396870316db64375957673e8d676fb15/artifacts
+creation_timestamp: 1750932716005
+experiment_id: '0'
+last_updated_timestamp: 1750932719575
+model_id: m-396870316db64375957673e8d676fb15
+model_type: null
+name: occupancy_predictor_model_Tanjung Priok-Jakarta Kota_peak_morning
+source_run_id: da7fe55845514ee095667d04c7019c7e
+status: 2
+status_message: null

@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/0cc7b6d249d34498babf0f6d7ac7c715/artifacts
+end_time: 1750941661616
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 0cc7b6d249d34498babf0f6d7ac7c715
+run_name: occupancy_predictor_test_PRAMEKS_offpeak_noon_2025-06-17 130000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750941655231
+status: 3
+tags: []
+user_id: acer

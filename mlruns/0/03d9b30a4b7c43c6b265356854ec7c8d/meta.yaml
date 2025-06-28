@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/03d9b30a4b7c43c6b265356854ec7c8d/artifacts
+end_time: 1750932939391
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 03d9b30a4b7c43c6b265356854ec7c8d
+run_name: occupancy_predictor_test_Parung Panjang-Tanah Abang_offpeak_noon_2025-06-17
+  130000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932933280
+status: 3
+tags: []
+user_id: acer

@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-9af00cbdd86c4bcca92ddc95a9116b7b/artifacts
+creation_timestamp: 1750932741978
+experiment_id: '0'
+last_updated_timestamp: 1750932745532
+model_id: m-9af00cbdd86c4bcca92ddc95a9116b7b
+model_type: null
+name: occupancy_predictor_model_Jatinegara-Cikarang_weekend
+source_run_id: 109755654d3246a2b21a72073b62adb5
+status: 2
+status_message: null

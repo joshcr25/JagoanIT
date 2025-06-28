@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/b9b02f67d52641859bc6cdd4881945f9/artifacts
+end_time: 1750932557169
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: b9b02f67d52641859bc6cdd4881945f9
+run_name: occupancy_predictor_test_Cikarang-Angke via Manggarai_weekend_2025-06-15
+  100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932552079
+status: 3
+tags: []
+user_id: acer

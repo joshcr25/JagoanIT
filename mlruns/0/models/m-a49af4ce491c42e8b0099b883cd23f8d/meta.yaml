@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-a49af4ce491c42e8b0099b883cd23f8d/artifacts
+creation_timestamp: 1750941554752
+experiment_id: '0'
+last_updated_timestamp: 1750941558718
+model_id: m-a49af4ce491c42e8b0099b883cd23f8d
+model_type: null
+name: occupancy_predictor_model_Cikarang-Angke_offpeak_noon
+source_run_id: 28f88ed036e544118ebcd2cc7dd58bbd
+status: 2
+status_message: null

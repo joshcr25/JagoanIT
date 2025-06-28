@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-202c55420ffc4f4985697c50766dc6d9/artifacts
+creation_timestamp: 1750932758806
+experiment_id: '0'
+last_updated_timestamp: 1750932762766
+model_id: m-202c55420ffc4f4985697c50766dc6d9
+model_type: null
+name: occupancy_predictor_model_Tanah Abang-Jatinegara_weekend
+source_run_id: 1d47916cc51645699df021d594d830f9
+status: 2
+status_message: null

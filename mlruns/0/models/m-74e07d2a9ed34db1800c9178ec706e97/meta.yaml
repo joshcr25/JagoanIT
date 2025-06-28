@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-74e07d2a9ed34db1800c9178ec706e97/artifacts
+creation_timestamp: 1750932710930
+experiment_id: '0'
+last_updated_timestamp: 1750932714479
+model_id: m-74e07d2a9ed34db1800c9178ec706e97
+model_type: null
+name: occupancy_predictor_model_Tangerang-Duri_weekend
+source_run_id: cb57a9c9427542c0b941754219254861
+status: 2
+status_message: null

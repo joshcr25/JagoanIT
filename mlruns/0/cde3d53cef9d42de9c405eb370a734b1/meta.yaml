@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/cde3d53cef9d42de9c405eb370a734b1/artifacts
+end_time: 1750932725729
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: cde3d53cef9d42de9c405eb370a734b1
+run_name: occupancy_predictor_test_Tanjung Priok-Jakarta Kota_offpeak_noon_2025-06-17
+  130000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932720706
+status: 3
+tags: []
+user_id: acer

@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/d4f838579cf64425a52211cc58041a6b/artifacts
+end_time: 1750932567379
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: d4f838579cf64425a52211cc58041a6b
+run_name: occupancy_predictor_test_Bekasi-Angke via Manggarai_offpeak_noon_2025-06-17
+  130000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932562418
+status: 3
+tags: []
+user_id: acer

@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/45c5d20b460746feb038d4f5bc01de96/artifacts
+end_time: 1750941567231
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 45c5d20b460746feb038d4f5bc01de96
+run_name: occupancy_predictor_test_Cikarang-Angke_weekend_2025-06-15 100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750941560547
+status: 3
+tags: []
+user_id: acer

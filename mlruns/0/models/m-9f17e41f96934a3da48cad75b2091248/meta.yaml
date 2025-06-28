@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-9f17e41f96934a3da48cad75b2091248/artifacts
+creation_timestamp: 1750942271991
+experiment_id: '0'
+last_updated_timestamp: 1750942275864
+model_id: m-9f17e41f96934a3da48cad75b2091248
+model_type: null
+name: occupancy_predictor_model_RANGKAS_MERAK_peak_morning
+source_run_id: 45cab13357614f2bbcc7a12c4ef45ca5
+status: 2
+status_message: null

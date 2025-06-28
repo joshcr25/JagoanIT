@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-cb640d92671545e88ff6e7675ed33b47/artifacts
+creation_timestamp: 1750932915646
+experiment_id: '0'
+last_updated_timestamp: 1750932919349
+model_id: m-cb640d92671545e88ff6e7675ed33b47
+model_type: null
+name: occupancy_predictor_model_Rangkasbitung-Tanah Abang_offpeak_noon
+source_run_id: a8771446824d4db2812ac84c2704113c
+status: 2
+status_message: null

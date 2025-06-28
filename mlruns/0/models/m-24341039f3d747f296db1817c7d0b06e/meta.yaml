@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-24341039f3d747f296db1817c7d0b06e/artifacts
+creation_timestamp: 1750932567957
+experiment_id: '0'
+last_updated_timestamp: 1750932571483
+model_id: m-24341039f3d747f296db1817c7d0b06e
+model_type: null
+name: occupancy_predictor_model_Bekasi-Angke via Manggarai_weekend
+source_run_id: 62bcb782c78e4aad9e811d406a5fd507
+status: 2
+status_message: null

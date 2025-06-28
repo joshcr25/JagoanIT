@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-482ad5e80bfb491ebbc7711726b81338/artifacts
+creation_timestamp: 1750932531586
+experiment_id: '0'
+last_updated_timestamp: 1750932538390
+model_id: m-482ad5e80bfb491ebbc7711726b81338
+model_type: null
+name: occupancy_predictor_model_Cikarang-Angke via Manggarai_peak_morning
+source_run_id: edb951058f02483daf074932f8b3da58
+status: 2
+status_message: null

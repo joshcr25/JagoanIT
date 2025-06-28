@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-93f18d0f634f47b9b3da4e959cbfc15e/artifacts
+creation_timestamp: 1750932747441
+experiment_id: '0'
+last_updated_timestamp: 1750932751193
+model_id: m-93f18d0f634f47b9b3da4e959cbfc15e
+model_type: null
+name: occupancy_predictor_model_Tanah Abang-Jatinegara_peak_morning
+source_run_id: ea9a3fbd04964e998a9278a4692a7350
+status: 2
+status_message: null

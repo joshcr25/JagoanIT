@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-c488532cdd5e4b49beee57e1f1e19555/artifacts
+creation_timestamp: 1750932573107
+experiment_id: '0'
+last_updated_timestamp: 1750932576712
+model_id: m-c488532cdd5e4b49beee57e1f1e19555
+model_type: null
+name: occupancy_predictor_model_Rangkasbitung-Tanah Abang_peak_morning
+source_run_id: 13f40057f0cc47929f4d7c103a220c60
+status: 2
+status_message: null

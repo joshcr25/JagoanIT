@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-09f3fbbb18194ef3b992fe2d3f848238/artifacts
+creation_timestamp: 1750932939902
+experiment_id: '0'
+last_updated_timestamp: 1750932943468
+model_id: m-09f3fbbb18194ef3b992fe2d3f848238
+model_type: null
+name: occupancy_predictor_model_Parung Panjang-Tanah Abang_weekend
+source_run_id: 2852d16358a445c09fe54c349efa598f
+status: 2
+status_message: null

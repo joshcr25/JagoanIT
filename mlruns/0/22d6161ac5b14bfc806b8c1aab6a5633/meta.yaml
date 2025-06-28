@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/22d6161ac5b14bfc806b8c1aab6a5633/artifacts
+end_time: 1750941648776
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 22d6161ac5b14bfc806b8c1aab6a5633
+run_name: occupancy_predictor_test_KRL_YOGYA_SOLO_weekend_2025-06-15 100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750941641427
+status: 3
+tags: []
+user_id: acer

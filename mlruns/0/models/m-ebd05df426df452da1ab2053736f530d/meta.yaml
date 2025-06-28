@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-ebd05df426df452da1ab2053736f530d/artifacts
+creation_timestamp: 1750932933768
+experiment_id: '0'
+last_updated_timestamp: 1750932937430
+model_id: m-ebd05df426df452da1ab2053736f530d
+model_type: null
+name: occupancy_predictor_model_Parung Panjang-Tanah Abang_offpeak_noon
+source_run_id: 03d9b30a4b7c43c6b265356854ec7c8d
+status: 2
+status_message: null

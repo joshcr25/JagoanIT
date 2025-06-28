@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/cb57a9c9427542c0b941754219254861/artifacts
+end_time: 1750932715734
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: cb57a9c9427542c0b941754219254861
+run_name: occupancy_predictor_test_Tangerang-Duri_weekend_2025-06-15 100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932710542
+status: 3
+tags: []
+user_id: acer

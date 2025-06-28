@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-56cece308ae04560b3ddc32132117da8/artifacts
+creation_timestamp: 1750942264167
+experiment_id: '0'
+last_updated_timestamp: 1750942268383
+model_id: m-56cece308ae04560b3ddc32132117da8
+model_type: null
+name: occupancy_predictor_model_PRAMEKS_weekend
+source_run_id: b9128d74583f4a7a8072c5c172491532
+status: 2
+status_message: null

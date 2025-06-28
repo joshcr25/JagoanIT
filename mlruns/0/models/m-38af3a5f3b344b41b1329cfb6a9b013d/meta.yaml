@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-38af3a5f3b344b41b1329cfb6a9b013d/artifacts
+creation_timestamp: 1750941581148
+experiment_id: '0'
+last_updated_timestamp: 1750941585087
+model_id: m-38af3a5f3b344b41b1329cfb6a9b013d
+model_type: null
+name: occupancy_predictor_model_Bekasi-Angke_weekend
+source_run_id: 495299cacdb041ef95922aac1881ec24
+status: 2
+status_message: null

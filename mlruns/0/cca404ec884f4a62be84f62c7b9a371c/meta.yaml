@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/cca404ec884f4a62be84f62c7b9a371c/artifacts
+end_time: 1750931246303
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: cca404ec884f4a62be84f62c7b9a371c
+run_name: occupancy_predictor_test 2025-06-15 100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750931241617
+status: 3
+tags: []
+user_id: acer

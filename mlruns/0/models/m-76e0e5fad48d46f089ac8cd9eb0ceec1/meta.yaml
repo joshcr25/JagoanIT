@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-76e0e5fad48d46f089ac8cd9eb0ceec1/artifacts
+creation_timestamp: 1750941567793
+experiment_id: '0'
+last_updated_timestamp: 1750941571607
+model_id: m-76e0e5fad48d46f089ac8cd9eb0ceec1
+model_type: null
+name: occupancy_predictor_model_Bekasi-Angke_peak_morning
+source_run_id: d4ef4171a71d4f349bdcc8e518b871b4
+status: 2
+status_message: null

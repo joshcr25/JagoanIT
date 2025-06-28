@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-1a25f6c740f94efcadb2ca3152e84c48/artifacts
+creation_timestamp: 1750942237034
+experiment_id: '0'
+last_updated_timestamp: 1750942240956
+model_id: m-1a25f6c740f94efcadb2ca3152e84c48
+model_type: null
+name: occupancy_predictor_model_KRL_YOGYA_SOLO_offpeak_noon
+source_run_id: cdd9d39f354148e58e24c6884206042a
+status: 2
+status_message: null

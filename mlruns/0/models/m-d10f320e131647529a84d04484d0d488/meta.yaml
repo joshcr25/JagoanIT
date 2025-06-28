@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/models/m-d10f320e131647529a84d04484d0d488/artifacts
+creation_timestamp: 1750941629528
+experiment_id: '0'
+last_updated_timestamp: 1750941633107
+model_id: m-d10f320e131647529a84d04484d0d488
+model_type: null
+name: occupancy_predictor_model_KRL_YOGYA_SOLO_peak_morning
+source_run_id: 86159b44b63e424d80b8e5c8796a89b5
+status: 2
+status_message: null

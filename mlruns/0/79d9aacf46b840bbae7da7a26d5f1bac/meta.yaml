@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/acer/Downloads/JagoanIT/mlruns/0/79d9aacf46b840bbae7da7a26d5f1bac/artifacts
+end_time: 1750932927357
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 79d9aacf46b840bbae7da7a26d5f1bac
+run_name: occupancy_predictor_test_Rangkasbitung-Tanah Abang_weekend_2025-06-15 100000
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1750932921098
+status: 3
+tags: []
+user_id: acer
