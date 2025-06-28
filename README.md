@@ -3,3 +3,8 @@ Sebagian kode dalam proyek ini (khususnya untuk boilerplate dan membantu pengerj
 
 Google Gemini: [https://gemini.google.com/app](https://gemini.google.com/app)
 GitHub Copilot: [https://copilot.github.com/](https://copilot.github.com/)
+
+Sumber:
+https://commuterline.id/perjalanan-krl/jadwal-kereta
+https://commuterline.id/files/download/documents/Jadwal%20Commuter%20Line%20Yogyakarta%20-%20Prameks.pdf
+https://commuterline.id/files/download/documents/Commuter%20Line%20Merak%20-Mulai%201%20Februari%202025-.pdf
