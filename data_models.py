@@ -20,6 +20,15 @@ class Train:
     departure_times: Dict[str, str] = field(default_factory=dict)
     # --- TAMBAHKAN FIELD INI ---
     region: Region = Region.JABODETABEK  # Atribut baru untuk wilayah
+    
+    def __init__(self, train_id: str, name: str = "", route: List[str] = None, departure_times: Dict[str, str] = None, region: Region = Region.JABODETABEK):
+        self.train_id = train_id
+        self.name = name
+        self.route = route if route is not None else []
+        self.departure_times = departure_times if departure_times is not None else {}
+        self.region = region
+    
+
 
 # Data class untuk sebuah node dalam pencarian rute.
 @dataclass
