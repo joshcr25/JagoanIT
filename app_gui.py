@@ -369,9 +369,12 @@ class AppGUI(tk.Tk):
                     occupancy = leg.get('occupancy_percentage', -1)
                     occupancy_str = f"{occupancy}%" if occupancy != -1 else "N/A"
                     details += f"    - Perkiraan Okupansi: {occupancy_str}\n"
-                    # --- Hapus tarif per leg ---
-                    # ...hapus blok tarif per leg di sini...
-                    # ---------------------------
+                    if (occupancy < 50):
+                        details += f"    - Komuter akan menemukan banyak kursi kosong, bahkan bisa memilih tempat duduk. Ruang gerak sangat leluasa, tidak ada dorong-dorongan, dan komuter bisa berdiri dengan nyaman tanpa bersentuhan dengan penumpang lain. \n"
+                    elif (occupancy >= 50 and occupancy < 100):
+                        details += f"    - Komuter mungkin masih bisa mendapatkan tempat duduk, tetapi tidak banyak pilihan. Jika berdiri, Komuter akan merasa cukup nyaman dengan ruang gerak yang memadai, meskipun sesekali bersentuhan dengan penumpang lain saat kereta bergerak atau berhenti. \n"
+                    else:
+                        details += f"    - Gerbong kereta api terasa penuh sesak, sulit bergerak, bahkan untuk sekadar bergeser. Komuter harus berdiri sangat berdekatan dengan penumpang lain karena tidak ada ruang kereta api dan ruang gerak yang memadai \n"
                     self.result_text.insert(tk.END, details)
 
         self.result_text.config(state=tk.DISABLED)
